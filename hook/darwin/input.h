@@ -5,16 +5,16 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include <Carbon/Carbon.h>	// For HIToolbox kVK_ keycodes and TIS funcitons.
 #ifdef USE_IOKIT
-    #include <IOKit/hidsystem/ev_keymap.h>
+#include <IOKit/hidsystem/ev_keymap.h>
 #endif
 #include <stdbool.h>
 
 
 #ifndef USE_IOKIT
 // Some of the system key codes that are needed from IOKit.
-// #define NX_KEYTYPE_SOUND_UP				0x00
-// #define NX_KEYTYPE_SOUND_DOWN			0x01
-// #define	NX_KEYTYPE_MUTE					0x07
+#define NX_KEYTYPE_SOUND_UP				0x00
+#define NX_KEYTYPE_SOUND_DOWN			0x01
+#define	NX_KEYTYPE_MUTE					0x07
 
 /* Display controls...
 #define NX_KEYTYPE_BRIGHTNESS_UP		0x02
@@ -26,18 +26,18 @@
 #define NX_KEYTYPE_ILLUMINATION_TOGGLE	0x17
 */
 
-// #define NX_KEYTYPE_CAPS_LOCK			0x04
-// #define NX_KEYTYPE_HELP				0x05
-// #define NX_POWER_KEY					0x06
+#define NX_KEYTYPE_CAPS_LOCK			0x04
+//#define NX_KEYTYPE_HELP				0x05
+#define NX_POWER_KEY					0x06
 
-// #define NX_KEYTYPE_EJECT				0x0E
-// #define NX_KEYTYPE_PLAY					0x10
-// #define NX_KEYTYPE_NEXT					0x12
-// #define NX_KEYTYPE_PREVIOUS				0x13
+#define NX_KEYTYPE_EJECT				0x0E
+#define NX_KEYTYPE_PLAY					0x10
+#define NX_KEYTYPE_NEXT					0x12
+#define NX_KEYTYPE_PREVIOUS				0x13
 
 /* There is no official fast-forward or rewind scan code support.*/
-// #define NX_KEYTYPE_FAST					0x14
-// #define NX_KEYTYPE_REWIND				0x15
+#define NX_KEYTYPE_FAST					0x14
+#define NX_KEYTYPE_REWIND				0x15
 
 #endif
 
