@@ -4,7 +4,8 @@ package hook
 #cgo darwin CFLAGS: -x objective-c  -Wno-deprecated-declarations
 #cgo darwin LDFLAGS: -framework Cocoa 
 #cgo linux CFLAGS:-I/usr/src
-#cgo linux LDFLAGS: -lX11-xcb -lxcb -lxcb-xkb -lxkbcommon -lxkbcommon-x11 -lm
+#cgo linux LDFLAGS: -L/usr/src -lX11 -lXtst
+#cgo linux LDFLAGS: -lX11-xcb -lxcb -lxcb-xkb -lxkbcommon -lxkbcommon-x11
 #cgo windows LDFLAGS: -lgdi32 -luser32
 
 #include "event/goEvent.h"

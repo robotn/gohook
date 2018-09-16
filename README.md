@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	hook.AsyncHook()
+	// hook.AsyncHook()
 	veve := hook.AddEvent("v")
 	if veve == 0 {
 		fmt.Println("v...")
