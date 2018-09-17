@@ -1,6 +1,6 @@
 # gohook
 
-This is a work in progress.
+<!-- This is a work in progress. -->
 
 ```Go
 package main
