@@ -12,7 +12,7 @@ package hook
 
 /*
 #cgo darwin CFLAGS: -x objective-c  -Wno-deprecated-declarations
-#cgo darwin LDFLAGS: -framework Cocoa 
+#cgo darwin LDFLAGS: -framework Cocoa
 
 #cgo linux CFLAGS:-I/usr/src
 #cgo linux LDFLAGS: -L/usr/src -lX11 -lXtst
@@ -24,7 +24,7 @@ package hook
 */
 import "C"
 
-import(
+import (
 	// 	"fmt"
 	"unsafe"
 )
@@ -33,7 +33,7 @@ import(
 func AddEvent(key string) int {
 	cs := C.CString(key)
 	defer C.free(unsafe.Pointer(cs))
-	
+
 	eve := C.add_event(cs)
 	geve := int(eve)
 
