@@ -21,11 +21,11 @@ import(
 // AddEvent add event listener
 func AddEvent(key string) int {
 	cs := C.CString(key)
+	defer C.free(unsafe.Pointer(cs))
 	
 	eve := C.add_event(cs)
 	geve := int(eve)
 
-	defer C.free(unsafe.Pointer(cs))
 	return geve
 }
 
