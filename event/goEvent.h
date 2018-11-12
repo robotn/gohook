@@ -149,7 +149,7 @@ int add_event(char *key_event) {
 	// (uint16_t *)
 	cevent = key_event;
 	// Set the logger callback for library output.
-	hookSetlogger(&loggerProc);
+	hook_set_logger(&loggerProc);
 
 	// Set the event callback for IOhook events.
 	hook_set_dispatch_proc(&dispatch_proc);
