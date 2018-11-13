@@ -49,7 +49,7 @@ void dispatch_proc(iohook_event * const event) {
 			snprintf(buffer + length, sizeof(buffer) - length,
 				",keycode=%u,rawcode=0x%X",
 				event->data.keyboard.keycode, event->data.keyboard.rawcode);
-				int akeyCode = (uint16_t) event->data.keyboard.keycode;
+				int key_code = (uint16_t) event->data.keyboard.keycode;
 
 				if (event->data.keyboard.keycode == VC_ESCAPE
 					&& atoi(cevent) == 11) {
@@ -59,7 +59,7 @@ void dispatch_proc(iohook_event * const event) {
 				}
 
 				// printf("atoi(str)---%d\n", atoi(cevent));
-				if (akeyCode == atoi(cevent)) {
+				if (key_code == atoi(cevent)) {
 					int stopEvent = stop_event();
 					// printf("%d\n", stopEvent);
 					cstatus = 0;
