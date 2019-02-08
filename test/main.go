@@ -2,22 +2,28 @@ package main
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/robotn/gohook"
+	"github.com/cauefcr/gohook"
 )
 
 func main() {
-	s := hook.StartEvent()
-
-	go func() {
-		fmt.Print("woo!")
-		for i:=range s {
-			fmt.Println(i)
+	s := hook.Start()
+	tout := time.After(time.Second * 10)
+	done := false
+	for !done {
+		select {
+		case i := <-s:
+			if i.Keychar == uint16('q') {
+				tout = time.After(1 * time.Millisecond)
+			}
+			fmt.Printf("%+v\n", i)
+		case <-tout:
+			fmt.Print("Done.")
+			done = true
+			break;
 		}
-	}()
-	// hook.AsyncHook()
-	veve := hook.AddEvent("v")
-	if veve == 0 {
-		fmt.Println("v...")
 	}
+	hook.End()
+
 }

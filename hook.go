@@ -20,64 +20,79 @@ package hook
 //#cgo windows LDFLAGS: -lgdi32 -luser32
 
 // #include "event/hook_async.h"
-#include "chan/src/chan.h"
 #include "event/goEvent.h"
-
-void go_send(char*);
-void go_sleep(void);
-extern chan_t* events;
-
-void startev(){
-	events = chan_init(1024);
-	add_event("q");
-}
-bool done = false;
-void pollEv(){
-	while(!done){
-		for(int i=chan_size(events); i >0;i--){
-			char* tmp;
-			chan_recv(events,(void**) &tmp);
-			go_send(tmp);
-		}
-		//go_sleep();
-	}
-}
-
-void endPoll(){
-	done = true;
-}
 
 */
 import "C"
 
 import (
-	// 	"fmt"
-	"unsafe"
+	"time"
 )
 
-var ev chan string = make(chan string,128)
+//todo: add enums
+const (
+	HOOK_ENABLED   = 1 //iota
+	HOOK_DISABLED  = 2
+	KEY_TYPED      = 3
+	KEY_PRESSED    = 4
+	KEY_RELEASED   = 5
+	MOUSE_CLICKED  = 6
+	MOUSE_PRESSED  = 7
+	MOUSE_RELEASED = 8
+	MOUSE_MOVED    = 9
+	MOUSE_DRAGGED  = 10
+	MOUSE_WHEEL    = 11
+)
 
-// AddEvent add event listener
-func AddEvent(key string) int {
-	cs := C.CString(key)
-	defer C.free(unsafe.Pointer(cs))
-
-	eve := C.add_event(cs)
-	geve := int(eve)
-
-	return geve
+type Event struct {
+	Kind      uint8  `json:"id"`
+	When      time.Time
+	Mask      uint16 `json:"mask"`
+	Reserved  uint16 `json:"reserved"`
+	Keycode   uint16 `json:"keycode"`
+	Rawcode   uint16 `json:"rawcode"`
+	Keychar   uint16 `json:"keychar"`
+	Button    uint16 `json:"button"`
+	Clicks    uint16 `json:"clicks"`
+	X         int16  `json:"x"`
+	Y         int16  `json:"y"`
+	Ammount   uint16 `json:"ammount"`
+	Rotation  int16  `json:"rotation"`
+	Direction uint8  `json:"direction"`
 }
 
-func StartEvent() chan string{
-	C.startev()
-	go C.pollEv()
+var (
+	ev      chan Event = make(chan Event, 1024)
+	asyncon bool       = false
+)
+
+func Start() chan Event {
+	//fmt.Print("Here1")
+	asyncon = true
+	go C.startev()
+	go func() {
+		for {
+			C.pollEv()
+			time.Sleep(time.Millisecond * 50)
+			//todo: find smallest time that does not destroy the cpu utilization
+			//fmt.Println("_here_")
+			if ! asyncon {
+				return
+			}
+		}
+		//fmt.Print("WOOOOOOOOOT")
+	}()
+	//fmt.Print("Here2")
 	return ev
 }
 
-
 // StopEvent stop event listener
-func StopEvent() {
+func End() {
 	C.endPoll()
 	C.stop_event()
-	C.chan_close(C.events);
+	for len(ev) != 0 {
+		<-ev
+	}
+	asyncon = false
+	//C.chan_close(C.events);
 }
