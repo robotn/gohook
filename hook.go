@@ -66,8 +66,9 @@ var (
 	asyncon bool       = false
 )
 
+// Adds global event hook to OS
+// returns event channel
 func Start() chan Event {
-	//fmt.Print("Here1")
 	asyncon = true
 	go C.startev()
 	go func() {
@@ -75,18 +76,15 @@ func Start() chan Event {
 			C.pollEv()
 			time.Sleep(time.Millisecond * 50)
 			//todo: find smallest time that does not destroy the cpu utilization
-			//fmt.Println("_here_")
 			if ! asyncon {
 				return
 			}
 		}
-		//fmt.Print("WOOOOOOOOOT")
 	}()
-	//fmt.Print("Here2")
 	return ev
 }
 
-// StopEvent stop event listener
+// End removes global event hook
 func End() {
 	C.endPoll()
 	C.stop_event()

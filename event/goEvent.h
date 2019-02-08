@@ -15,9 +15,7 @@
 
 #include <stdlib.h>
 #include "pub.h"
-//#include "../chan/src/chan.h"
 #include "../chan/eb_chan.h"
-//chan_t * events = NULL;
 eb_chan events;
 
 void go_send(char*);
@@ -26,14 +24,12 @@ void go_sleep(void);
 bool sending = false;
 
 void startev(){
-//	events = chan_init(1024);
     events = eb_chan_create(1024);
     eb_chan_retain(events);
 	sending = true;
 	add_event("q");
 }
 
-//bool done = false;
 void pollEv(){
     if(events == NULL) return;
     for(;eb_chan_buf_len(events)!=0;){
@@ -57,17 +53,12 @@ void dispatch_proc(iohook_event * const event) {
     if(!sending) return;
 //leaking memory? hope not
     char* buffer = calloc(200,sizeof(char));
-//	char buffer[256] = { 0 };
-//	size_t length = snprintf(buffer, sizeof(buffer),
-//			"{id:%i,when:%" PRIu64 ",mask=0x%X",
-//			event->type, event->time, event->mask);
 
 	switch (event->type) {
 	    case EVENT_HOOK_ENABLED:
 	    case EVENT_HOOK_DISABLED:
 	        sprintf(buffer,"{\"id\":%i,\"time\":%" PRIu64 ",\"mask\":%hu,\"reserved\":%hu}",
 	        event->type, event->time, event->mask,event->reserved);
-//	    fprintf(stdout,"hook enabled");
 	    break;//send it?
 		case EVENT_KEY_PRESSED:
 		case EVENT_KEY_RELEASED:
@@ -111,19 +102,13 @@ void dispatch_proc(iohook_event * const event) {
 	//to-do remove this for
 	for(int i = 0; i < 5; i++){
         switch(eb_chan_try_send(events,buffer)){
-//	    switch(chan_select(NULL,0,NULL,&events,1,(void**) &buffer)){
             case eb_chan_res_ok:
-//            case 0:
-//            fprintf(stdout,"\nlen:%i,item sent: %s",chan_size(events),buffer);
-//            fprintf(stdout,"\nlen:%i,item sent: %s",eb_chan_buf_len(events),buffer);
             i=5;
             break;
             default:
             if (i == 4) {//let's not leak memory
                 free(buffer);
             }
-//            chan_dispose(events);
-//            fprintf(stdout,"%i",i);
             continue;
         }
     }
@@ -132,7 +117,6 @@ void dispatch_proc(iohook_event * const event) {
 }
 
 int add_event(char *key_event) {
-	// (uint16_t *)
 	cevent = key_event;
 	// Set the logger callback for library output.
 	hook_set_logger(&loggerProc);
@@ -228,7 +212,7 @@ int stop_event(){
 			loggerProc(LOG_LEVEL_ERROR, "Failed to get XRecord context. (%#X)", status);
 			break;
 
-				// Default error.
+		// Default error.
 		case IOHOOK_FAILURE:
 			default:
 			// loggerProc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);

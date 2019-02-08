@@ -29,9 +29,3 @@ func go_send(s *C.char) {
 	//todo: maybe make non-bloking
 	ev <- out
 }
-
-////export go_sleep
-//func go_sleep(){
-//
-//	time.Sleep(time.Millisecond*50)
-//}
