@@ -19,8 +19,34 @@ package hook
 #cgo linux LDFLAGS: -lX11-xcb -lxcb -lxcb-xkb -lxkbcommon -lxkbcommon-x11
 //#cgo windows LDFLAGS: -lgdi32 -luser32
 
-#include "event/goEvent.h"
 // #include "event/hook_async.h"
+#include "chan/src/chan.h"
+#include "event/goEvent.h"
+
+void go_send(char*);
+void go_sleep(void);
+extern chan_t* events;
+
+void startev(){
+	events = chan_init(1024);
+	add_event("q");
+}
+bool done = false;
+void pollEv(){
+	while(!done){
+		for(int i=chan_size(events); i >0;i--){
+			char* tmp;
+			chan_recv(events,(void**) &tmp);
+			go_send(tmp);
+		}
+		//go_sleep();
+	}
+}
+
+void endPoll(){
+	done = true;
+}
+
 */
 import "C"
 
@@ -28,6 +54,8 @@ import (
 	// 	"fmt"
 	"unsafe"
 )
+
+var ev chan string = make(chan string,128)
 
 // AddEvent add event listener
 func AddEvent(key string) int {
@@ -40,7 +68,16 @@ func AddEvent(key string) int {
 	return geve
 }
 
+func StartEvent() chan string{
+	C.startev()
+	go C.pollEv()
+	return ev
+}
+
+
 // StopEvent stop event listener
 func StopEvent() {
+	C.endPoll()
 	C.stop_event()
+	C.chan_close(C.events);
 }

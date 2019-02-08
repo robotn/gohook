@@ -7,6 +7,14 @@ import (
 )
 
 func main() {
+	s := hook.StartEvent()
+
+	go func() {
+		fmt.Print("woo!")
+		for i:=range s {
+			fmt.Println(i)
+		}
+	}()
 	// hook.AsyncHook()
 	veve := hook.AddEvent("v")
 	if veve == 0 {
