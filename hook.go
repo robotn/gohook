@@ -56,7 +56,7 @@ type Event struct {
 	Clicks    uint16 `json:"clicks"`
 	X         int16  `json:"x"`
 	Y         int16  `json:"y"`
-	Ammount   uint16 `json:"ammount"`
+	Amount    uint16 `json:"amount"`
 	Rotation  int16  `json:"rotation"`
 	Direction uint8  `json:"direction"`
 }
@@ -92,5 +92,4 @@ func End() {
 		<-ev
 	}
 	asyncon = false
-	//C.chan_close(C.events);
 }

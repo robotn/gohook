@@ -101,7 +101,7 @@ void dispatch_proc(iohook_event * const event) {
 	}
 	//to-do remove this for
 	for(int i = 0; i < 5; i++){
-        switch(eb_chan_try_send(events,buffer)){
+        switch(eb_chan_try_send(events,buffer)){ //never block the hook callback
             case eb_chan_res_ok:
             i=5;
             break;

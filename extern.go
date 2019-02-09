@@ -8,7 +8,6 @@ package hook
 import "C"
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"time"
 )
@@ -16,7 +15,6 @@ import (
 //export go_send
 func go_send(s *C.char) {
 	str := []byte(C.GoString(s))
-	fmt.Println(string(str))
 	out := Event{}
 	err := json.Unmarshal(str, &out)
 	if err != nil{
