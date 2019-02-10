@@ -33,11 +33,11 @@ const (
 	HookEnabled  = 1 //iota
 	HookDisabled = 2
 	KeyDown      = 3
-	KeyHold   = 4
+	KeyHold      = 4
 	KeyUp        = 5
-	MouseUp    = 6
+	MouseUp      = 6
 	MouseHold    = 7
-	MouseDown      = 8
+	MouseDown    = 8
 	MouseMove    = 9
 	MouseDrag    = 10
 	MouseWheel   = 11
@@ -69,8 +69,8 @@ type Event struct {
 }
 
 var (
-	ev      chan Event = make(chan Event, 1024)
-	asyncon bool       = false
+	ev      = make(chan Event, 1024)
+	asyncon = false
 )
 
 // Adds global event hook to OS

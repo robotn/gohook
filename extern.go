@@ -20,6 +20,9 @@ func go_send(s *C.char) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if out.Keychar != CharUndefined {
+		raw2key[out.Rawcode] = string([]rune{out.Keychar})
+	}
 	//todo bury this deep into the C lib so that the time is correct
 	out.When = time.Now() //at least it's consistent
 	if err != nil {
