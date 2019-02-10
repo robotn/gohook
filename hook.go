@@ -29,29 +29,36 @@ import (
 	"time"
 )
 
-//todo: add enums
 const (
-	HOOK_ENABLED   = 1 //iota
-	HOOK_DISABLED  = 2
-	KEY_TYPED      = 3
-	KEY_PRESSED    = 4
-	KEY_RELEASED   = 5
-	MOUSE_CLICKED  = 6
-	MOUSE_PRESSED  = 7
-	MOUSE_RELEASED = 8
-	MOUSE_MOVED    = 9
-	MOUSE_DRAGGED  = 10
-	MOUSE_WHEEL    = 11
+	HookEnabled  = 1 //iota
+	HookDisabled = 2
+	KeyDown      = 3
+	KeyHold   = 4
+	KeyUp        = 5
+	MouseUp    = 6
+	MouseHold    = 7
+	MouseDown      = 8
+	MouseMove    = 9
+	MouseDrag    = 10
+	MouseWheel   = 11
+	//Keychar could be   v
+	CharUndefined = 0xFFFF
+	WheelUp       = -1
+	WheelDown     = 1
 )
 
+//Holds a system event
+//If it's a Keyboard event the relevant fields are: Mask, Keycode, Rawcode, and Keychar,
+//Keychar is probably what you want. If it's a Mouse event the relevant fields are:
+//Button, Clicks, X, Y, Amount, Rotation and Direction
 type Event struct {
-	Kind      uint8  `json:"id"`
+	Kind      uint8 `json:"id"`
 	When      time.Time
 	Mask      uint16 `json:"mask"`
 	Reserved  uint16 `json:"reserved"`
 	Keycode   uint16 `json:"keycode"`
 	Rawcode   uint16 `json:"rawcode"`
-	Keychar   uint16 `json:"keychar"`
+	Keychar   rune   `json:"keychar"`
 	Button    uint16 `json:"button"`
 	Clicks    uint16 `json:"clicks"`
 	X         int16  `json:"x"`
@@ -76,7 +83,7 @@ func Start() chan Event {
 			C.pollEv()
 			time.Sleep(time.Millisecond * 50)
 			//todo: find smallest time that does not destroy the cpu utilization
-			if ! asyncon {
+			if !asyncon {
 				return
 			}
 		}

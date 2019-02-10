@@ -6,6 +6,8 @@
 [![GoDoc](https://godoc.org/github.com/cauefcr/gohook?status.svg)](https://godoc.org/github.com/cauefcr/gohook)
 <!-- This is a work in progress. -->
 
+Based on [libuiohook](https://github.com/kwhat/libuiohook)
+
 ```Go
 package main
 
