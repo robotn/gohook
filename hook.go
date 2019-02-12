@@ -68,6 +68,14 @@ type Event struct {
 	Direction uint8  `json:"direction"`
 }
 
+func RawcodetoKeychar(r uint16) string {
+	return raw2key[r]
+}
+
+func KeychartoRawcode(kc string) uint16 {
+	return keytoraw[kc]
+}
+
 var (
 	ev      = make(chan Event, 1024)
 	asyncon = false
