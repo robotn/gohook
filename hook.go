@@ -19,7 +19,6 @@ package hook
 #cgo linux LDFLAGS: -lX11-xcb -lxcb -lxcb-xkb -lxkbcommon -lxkbcommon-x11
 //#cgo windows LDFLAGS: -lgdi32 -luser32
 
-// #include "event/hook_async.h"
 #include "event/goEvent.h"
 
 */
@@ -28,6 +27,7 @@ import "C"
 import (
 	"fmt"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -100,7 +100,7 @@ func (e Event) String() string {
 	case MouseWheel:
 		return fmt.Sprintf("%v - Event: {Kind: MouseWheel, Amount: %v, Rotation: %v, Direction: %v}", e.When, e.Amount, e.Rotation, e.Direction)
 	case FakeEvent:
-		return fmt.Sprintf("%v - Event: {Kind: FakeEvent}",e.When)
+		return fmt.Sprintf("%v - Event: {Kind: FakeEvent}", e.When)
 	}
 	return "Unknown event, contact the mantainers"
 }
