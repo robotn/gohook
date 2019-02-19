@@ -34,7 +34,9 @@ void pollEv(){
     if (events == NULL) return;
     for (;eb_chan_buf_len(events)!=0;) {
         char* tmp;
-        if( eb_chan_try_recv(events,(const void**) &tmp) == eb_chan_res_ok ){
+        if (eb_chan_try_recv(events, (const void**) &tmp) 
+			== eb_chan_res_ok) {
+			// send a char
             go_send(tmp);
             free(tmp);
         } else {

@@ -175,6 +175,7 @@ var (
 		251: "unlock trackpad (Chrome/Edge)",
 		255: "toggle touchpad",
 	}
+
 	keytoraw = map[string]uint16{
 		"error":                           0,
 		"break":                           3,
