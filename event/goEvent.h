@@ -31,13 +31,13 @@ void startev(){
 }
 
 void pollEv(){
-    if(events == NULL) return;
-    for(;eb_chan_buf_len(events)!=0;){
+    if (events == NULL) return;
+    for (;eb_chan_buf_len(events)!=0;) {
         char* tmp;
-        if(eb_chan_try_recv(events,(const void**) &tmp) == eb_chan_res_ok){
+        if( eb_chan_try_recv(events,(const void**) &tmp) == eb_chan_res_ok ){
             go_send(tmp);
             free(tmp);
-        }else{
+        } else {
             //
         }
     }
@@ -45,13 +45,13 @@ void pollEv(){
 
 void endPoll(){
 	sending = false;
-	pollEv();//remove last things from channel
+	pollEv(); // remove last things from channel
 	eb_chan_release(events);
 }
 
 void dispatch_proc(iohook_event * const event) {
     if(!sending) return;
-//leaking memory? hope not
+	// leaking memory? hope not
     char* buffer = calloc(200,sizeof(char));
 
 	switch (event->type) {
@@ -59,7 +59,7 @@ void dispatch_proc(iohook_event * const event) {
 	    case EVENT_HOOK_DISABLED:
 	        sprintf(buffer,"{\"id\":%i,\"time\":%" PRIu64 ",\"mask\":%hu,\"reserved\":%hu}",
 	        event->type, event->time, event->mask,event->reserved);
-	    break;//send it?
+	    break;	// send it?
 		case EVENT_KEY_PRESSED:
 		case EVENT_KEY_RELEASED:
 		case EVENT_KEY_TYPED:
@@ -99,14 +99,14 @@ void dispatch_proc(iohook_event * const event) {
 		    fprintf(stderr,"\nError on file: %s, unusual event->type: %i\n",__FILE__,event->type);
 			return;
 	}
-	//to-do remove this for
+	// to-do remove this for
 	for(int i = 0; i < 5; i++){
-        switch(eb_chan_try_send(events,buffer)){ //never block the hook callback
+        switch(eb_chan_try_send(events,buffer)){ // never block the hook callback
             case eb_chan_res_ok:
             i=5;
             break;
             default:
-            if (i == 4) {//let's not leak memory
+            if (i == 4) { // let's not leak memory
                 free(buffer);
             }
             continue;

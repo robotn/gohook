@@ -31,40 +31,49 @@ import (
 )
 
 const (
-	HookEnabled  = 1 //iota
+	HookEnabled  = 1 // iota
 	HookDisabled = 2
-	KeyDown      = 3
-	KeyHold      = 4
-	KeyUp        = 5
-	MouseUp      = 6
-	MouseHold    = 7
-	MouseDown    = 8
-	MouseMove    = 9
-	MouseDrag    = 10
-	MouseWheel   = 11
-	FakeEvent    = 12
-	//Keychar could be   v
+
+	KeyDown = 3
+	KeyHold = 4
+	KeyUp   = 5
+
+	MouseUp    = 6
+	MouseHold  = 7
+	MouseDown  = 8
+	MouseMove  = 9
+	MouseDrag  = 10
+	MouseWheel = 11
+
+	FakeEvent = 12
+	//Keychar could be 	v
 	CharUndefined = 0xFFFF
 	WheelUp       = -1
 	WheelDown     = 1
 )
 
-//Holds a system event
-//If it's a Keyboard event the relevant fields are: Mask, Keycode, Rawcode, and Keychar,
-//Keychar is probably what you want. If it's a Mouse event the relevant fields are:
-//Button, Clicks, X, Y, Amount, Rotation and Direction
+// Event Holds a system event
+// If it's a Keyboard event the relevant fields are:
+// Mask, Keycode, Rawcode, and Keychar,
+// Keychar is probably what you want.
+// If it's a Mouse event the relevant fields are:
+// Button, Clicks, X, Y, Amount, Rotation and Direction
 type Event struct {
-	Kind      uint8 `json:"id"`
-	When      time.Time
-	Mask      uint16 `json:"mask"`
-	Reserved  uint16 `json:"reserved"`
-	Keycode   uint16 `json:"keycode"`
-	Rawcode   uint16 `json:"rawcode"`
-	Keychar   rune   `json:"keychar"`
-	Button    uint16 `json:"button"`
-	Clicks    uint16 `json:"clicks"`
-	X         int16  `json:"x"`
-	Y         int16  `json:"y"`
+	Kind     uint8 `json:"id"`
+	When     time.Time
+	Mask     uint16 `json:"mask"`
+	Reserved uint16 `json:"reserved"`
+
+	Keycode uint16 `json:"keycode"`
+	Rawcode uint16 `json:"rawcode"`
+	Keychar rune   `json:"keychar"`
+
+	Button uint16 `json:"button"`
+	Clicks uint16 `json:"clicks"`
+
+	X int16 `json:"x"`
+	Y int16 `json:"y"`
+
 	Amount    uint16 `json:"amount"`
 	Rotation  int16  `json:"rotation"`
 	Direction uint8  `json:"direction"`
@@ -75,6 +84,7 @@ var (
 	asyncon = false
 )
 
+// String return hook kind string
 func (e Event) String() string {
 	switch e.Kind {
 	case HookEnabled:
@@ -102,32 +112,38 @@ func (e Event) String() string {
 	case FakeEvent:
 		return fmt.Sprintf("%v - Event: {Kind: FakeEvent}", e.When)
 	}
+
 	return "Unknown event, contact the mantainers"
 }
 
+// RawcodetoKeychar rawcode to keychar
 func RawcodetoKeychar(r uint16) string {
 	return raw2key[r]
 }
 
+// KeychartoiRawcode key char to rawcode
 func KeychartoRawcode(kc string) uint16 {
 	return keytoraw[kc]
 }
 
-// Adds global event hook to OS
+// Start Adds global event hook to OS
 // returns event channel
 func Start() chan Event {
 	asyncon = true
 	go C.startev()
+
 	go func() {
 		for {
 			C.pollEv()
 			time.Sleep(time.Millisecond * 50)
-			//todo: find smallest time that does not destroy the cpu utilization
+
+			// todo: find smallest time that does not destroy the cpu utilization
 			if !asyncon {
 				return
 			}
 		}
 	}()
+
 	return ev
 }
 
@@ -135,9 +151,11 @@ func Start() chan Event {
 func End() {
 	C.endPoll()
 	C.stop_event()
+
 	for len(ev) != 0 {
 		<-ev
 	}
+
 	asyncon = false
 }
 
