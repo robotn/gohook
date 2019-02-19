@@ -566,7 +566,8 @@ static inline void port_list_free(port_list l) {
     }
 
     /* Release each port in our list */
-    for (size_t i = 0; i < l->len; i++) {
+    size_t i;
+    for (i = 0; i < l->len; i++) {
         eb_port_release(l->ports[i]);
     }
 
@@ -613,7 +614,8 @@ static inline bool port_list_rm(port_list l, eb_port p) {
         eb_assert_or_bail(l->len <= l->cap, "Sanity-check failed");
 
         /* Search for first occurence of the given port. If we find it, release it and move the last port in the list into the hole. */
-        for (size_t i = 0; i < l->len; i++) {
+        size_t i;
+        for (i = 0; i < l->len; i++) {
             if (l->ports[i] == p) {
                 /* Move the last element in the port list into the now-vacant spot */
                 l->ports[i] = l->ports[l->len-1];
@@ -639,7 +641,8 @@ static inline void port_list_signal_first(const port_list l, eb_port ignore) {
 
     eb_port p = NULL;
     eb_spinlock_lock(&l->lock);
-        for (size_t i = 0; i < l->len; i++) {
+        size_t i;
+        for (i = 0; i < l->len; i++) {
             if (l->ports[i] != ignore) {
                 p = eb_port_retain(l->ports[i]);
                 break;
@@ -845,7 +848,8 @@ enum {
 static inline void cleanup_ops(const do_state *state) {
     assert(state);
 
-    for (size_t i = 0; i < state->nops; i++) {
+    size_t i;
+    for (i = 0; i < state->nops; i++) {
         if (state->cleanup_ops[i]) {
             eb_chan_op *op = state->ops[i];
             eb_chan c = op->chan;
@@ -1310,7 +1314,8 @@ eb_chan_op *eb_chan_select_list(eb_nsec timeout, eb_chan_op *const ops[], size_t
 
     if (timeout == eb_nsec_zero) {
         /* ## timeout == 0: try every op exactly once; if none of them can proceed, return NULL. */
-        for (size_t i = 0, idx = idx_start; i < nops; i++, idx = next_idx(nops, idx_delta, idx)) {
+        size_t i, idx;
+        for (i = 0, idx = idx_start; i < nops; i++, idx = next_idx(nops, idx_delta, idx)) {
             eb_chan_op *op = ops[idx];
             op_result r;
             while ((r = try_op(&state, op, idx)) == op_result_retry) {
@@ -1336,7 +1341,8 @@ eb_chan_op *eb_chan_select_list(eb_nsec timeout, eb_chan_op *const ops[], size_t
         for (;;) {
             /* ## Fast path: loop over our operations to see if one of them was able to send/receive. (If not,
                we'll enter the slow path where we put our thread to sleep until we're signaled.) */
-            for (size_t i = 0, idx = idx_start; i < k_attempt_multiplier*nops; i++, idx = next_idx(nops, idx_delta, idx)) {
+            size_t i, idx;
+            for (i = 0, idx = idx_start; i < k_attempt_multiplier*nops; i++, idx = next_idx(nops, idx_delta, idx)) {
                 eb_chan_op *op = ops[idx];
                 op_result r = try_op(&state, op, idx);
                 /* If the op completed, we need to exit! */
@@ -1356,7 +1362,8 @@ eb_chan_op *eb_chan_select_list(eb_nsec timeout, eb_chan_op *const ops[], size_t
                 /* Register our port for the appropriate notifications on every channel. */
                 /* This adds 'port' to the channel's sends/recvs (depending on the op), which we clean up at the
                    end of this function. */
-                for (size_t i = 0; i < nops; i++) {
+                size_t i;
+                for (i = 0; i < nops; i++) {
                     eb_chan_op *op = ops[i];
                     eb_chan c = op->chan;
                     if (c) {
@@ -1368,7 +1375,8 @@ eb_chan_op *eb_chan_select_list(eb_nsec timeout, eb_chan_op *const ops[], size_t
             /* Before we go to sleep, call try_op() for every op until we get a non-busy return value. This way we'll ensure
                that no op is actually able to be performed, and we'll also ensure that 'port' is registered as the 'unbuf_port'
                for the necessary channels. */
-            for (size_t i = 0, idx = idx_start; i < nops; i++, idx = next_idx(nops, idx_delta, idx)) {
+            // size_t i, idx;
+            for (i = 0, idx = idx_start; i < nops; i++, idx = next_idx(nops, idx_delta, idx)) {
                 eb_chan_op *op = ops[idx];
                 op_result r;
                 while ((r = try_op(&state, op, idx)) == op_result_retry) {
@@ -1406,7 +1414,8 @@ eb_chan_op *eb_chan_select_list(eb_nsec timeout, eb_chan_op *const ops[], size_t
     /* Cleanup! */
     cleanup: {
         if (state.port) {
-            for (size_t i = 0; i < nops; i++) {
+            size_t i;
+            for (i = 0; i < nops; i++) {
                 eb_chan_op *op = ops[i];
                 eb_chan c = op->chan;
                 if (c) {

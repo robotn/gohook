@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	// HookEnabled honk enable status
 	HookEnabled  = 1 // iota
 	HookDisabled = 2
 
@@ -46,7 +47,7 @@ const (
 	MouseWheel = 11
 
 	FakeEvent = 12
-	//Keychar could be 	v
+	// Keychar could be v
 	CharUndefined = 0xFFFF
 	WheelUp       = -1
 	WheelDown     = 1
@@ -121,7 +122,7 @@ func RawcodetoKeychar(r uint16) string {
 	return raw2key[r]
 }
 
-// KeychartoiRawcode key char to rawcode
+// KeychartoRawcode key char to rawcode
 func KeychartoRawcode(kc string) uint16 {
 	return keytoraw[kc]
 }

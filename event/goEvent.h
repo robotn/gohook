@@ -52,7 +52,7 @@ void endPoll(){
 void dispatch_proc(iohook_event * const event) {
     if(!sending) return;
 	// leaking memory? hope not
-    char* buffer = calloc(200,sizeof(char));
+    char* buffer = calloc(200, sizeof(char));
 
 	switch (event->type) {
 	    case EVENT_HOOK_ENABLED:
@@ -99,17 +99,19 @@ void dispatch_proc(iohook_event * const event) {
 		    fprintf(stderr,"\nError on file: %s, unusual event->type: %i\n",__FILE__,event->type);
 			return;
 	}
+	
 	// to-do remove this for
-	for(int i = 0; i < 5; i++){
-        switch(eb_chan_try_send(events,buffer)){ // never block the hook callback
+	int i;
+	for (i = 0; i < 5; i++) {
+        switch (eb_chan_try_send(events,buffer)) { // never block the hook callback
             case eb_chan_res_ok:
-            i=5;
-            break;
+				i=5;
+				break;
             default:
-            if (i == 4) { // let's not leak memory
-                free(buffer);
-            }
-            continue;
+				if (i == 4) { // let's not leak memory
+					free(buffer);
+				}
+				continue;
         }
     }
 

@@ -37,7 +37,7 @@
 
 
 int vccode[100];
-int  codesz;
+int codesz;
 
 char *cevent;
 int rrevent;
