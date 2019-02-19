@@ -1,1 +1,1 @@
-module github.com/cauefcr/gohook
+module github.com/robotn/gohook

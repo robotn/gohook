@@ -151,3 +151,8 @@ func AddEvent(key string) int {
 
 	return geve
 }
+
+// StopEvent stop event listener
+func StopEvent() {
+	C.stop_event()
+}
