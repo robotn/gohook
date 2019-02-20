@@ -7,6 +7,7 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
+
 #ifndef goevent_h
 #define goevent_h
 #ifdef HAVE_CONFIG_H
@@ -15,23 +16,23 @@
 
 #include <stdlib.h>
 #include "pub.h"
-#include "../chan/eb_chan.h"
-eb_chan events;
+// #include "../chan/eb_chan.h"
+#include "dispatch_proc.h"
 
 void go_send(char*);
 void go_sleep(void);
 
-bool sending = false;
-
-void startev(){
+void start_ev(){
     events = eb_chan_create(1024);
     eb_chan_retain(events);
 	sending = true;
-	add_event("q");
+	// add_event("q");
+	add_event_async();
 }
 
 void pollEv(){
-    if (events == NULL) return;
+    if (events == NULL) { return; }
+	
     for (;eb_chan_buf_len(events)!=0;) {
         char* tmp;
         if (eb_chan_try_recv(events, (const void**) &tmp) 
@@ -51,82 +52,25 @@ void endPoll(){
 	eb_chan_release(events);
 }
 
-void dispatch_proc(iohook_event * const event) {
-    if(!sending) return;
-	// leaking memory? hope not
-    char* buffer = calloc(200, sizeof(char));
+int add_event(char *key_event) {
+	// (uint16_t *)
+	cevent = key_event;
+	add(&dispatch_proc_end);
 
-	switch (event->type) {
-	    case EVENT_HOOK_ENABLED:
-	    case EVENT_HOOK_DISABLED:
-	        sprintf(buffer,"{\"id\":%i,\"time\":%" PRIu64 ",\"mask\":%hu,\"reserved\":%hu}",
-	        event->type, event->time, event->mask,event->reserved);
-	    break;	// send it?
-		case EVENT_KEY_PRESSED:
-		case EVENT_KEY_RELEASED:
-		case EVENT_KEY_TYPED:
-           sprintf(buffer,
-                "{\"id\":%i,\"time\":%" PRIu64 ",\"mask\":%hu,\"reserved\":%hu,\"keycode\":%hu,\"rawcode\":%hu,\"keychar\":%hu}",
-                event->type, event->time, event->mask,event->reserved,
-                event->data.keyboard.keycode,
-                event->data.keyboard.rawcode,
-                event->data.keyboard.keychar);
-            break;
-		case EVENT_MOUSE_PRESSED:
-		case EVENT_MOUSE_RELEASED:
-		case EVENT_MOUSE_CLICKED:
-		case EVENT_MOUSE_MOVED:
-		case EVENT_MOUSE_DRAGGED:
-			sprintf(buffer,
-				"{\"id\":%i,\"time\":%" PRIu64 ",\"mask\":%hu,\"reserved\":%hu,\"x\":%hd,\"y\":%hd,\"button\":%u,\"clicks\":%u}",
-				event->type, event->time, event->mask,event->reserved,
-				event->data.mouse.x,
-				event->data.mouse.y,
-				event->data.mouse.button,
-				event->data.mouse.clicks);
-			break;
-		case EVENT_MOUSE_WHEEL:
-			sprintf(buffer,
-				"{\"id\":%i,\"time\":%" PRIu64 ",\"mask\":%hu,\"reserved\":%hu,\"clicks\":%hu,\"x\":%hd,\"y\":%hd,\"type\":%hu,\"ammount\":%hu,\"rotation\":%hd,\"direction\":%hu}",
-				event->type, event->time, event->mask, event->reserved,
-				event->data.wheel.clicks,
-				event->data.wheel.x,
-				event->data.wheel.y,
-   				event->data.wheel.type,
-   				event->data.wheel.amount,
-   				event->data.wheel.rotation,
-   				event->data.wheel.direction);
-			break;
-		default:
-		    fprintf(stderr,"\nError on file: %s, unusual event->type: %i\n",__FILE__,event->type);
-			return;
-	}
-	
-	// to-do remove this for
-	int i;
-	for (i = 0; i < 5; i++) {
-        switch (eb_chan_try_send(events,buffer)) { // never block the hook callback
-            case eb_chan_res_ok:
-				i=5;
-				break;
-            default:
-				if (i == 4) { // let's not leak memory
-					free(buffer);
-				}
-				continue;
-        }
-    }
-
-	// fprintf(stdout, "----%s\n",	 buffer);
+	return cstatus;
 }
 
-int add_event(char *key_event) {
-	cevent = key_event;
+void add_event_async(){
+	add(&dispatch_proc);
+}
+
+int add(dispatcher_t dispatch) {
 	// Set the logger callback for library output.
 	hook_set_logger(&loggerProc);
 
 	// Set the event callback for IOhook events.
-	hook_set_dispatch_proc(&dispatch_proc);
+	hook_set_dispatch_proc(dispatch);
+
 	// Start the hook and block.
 	// NOTE If EVENT_HOOK_ENABLED was delivered, the status will always succeed.
 	int status = hook_run();
@@ -198,9 +142,9 @@ int add_event(char *key_event) {
 			break;
 	}
 
-	// return status;
+	return status;
 	// printf("%d\n", status);
-	return cstatus;
+	// return cstatus;
 }
 
 int stop_event(){

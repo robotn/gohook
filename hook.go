@@ -131,7 +131,7 @@ func KeychartoRawcode(kc string) uint16 {
 // returns event channel
 func Start() chan Event {
 	asyncon = true
-	go C.startev()
+	go C.start_ev()
 
 	go func() {
 		for {

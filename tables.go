@@ -1,7 +1,7 @@
 package hook
 
 var (
-	raw2key = map[uint16]string{ //https://github.com/wesbos/keycodes
+	raw2key = map[uint16]string{ // https://github.com/wesbos/keycodes
 		0:   "error",
 		3:   "break",
 		8:   "backspace",
