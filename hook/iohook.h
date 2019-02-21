@@ -79,6 +79,7 @@ typedef struct _screen_data {
 typedef struct _keyboard_event_data {
 	uint16_t keycode;
 	uint16_t rawcode;
+	// uint16_t keychar;
 	uint32_t keychar;
 	// char *keychar;
 } keyboard_event_data,
