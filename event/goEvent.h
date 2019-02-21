@@ -55,16 +55,16 @@ void endPoll(){
 int add_event(char *key_event) {
 	// (uint16_t *)
 	cevent = key_event;
-	add(&dispatch_proc_end);
+	add_hook(&dispatch_proc_end);
 
 	return cstatus;
 }
 
 void add_event_async(){
-	add(&dispatch_proc);
+	add_hook(&dispatch_proc);
 }
 
-int add(dispatcher_t dispatch) {
+int add_hook(dispatcher_t dispatch) {
 	// Set the logger callback for library output.
 	hook_set_logger(&loggerProc);
 
