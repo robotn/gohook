@@ -49,7 +49,7 @@ int cstatus = 1;
 int event_status;
 int rrevent;
 
-int add(dispatcher_t dispatch);
+int add_hook(dispatcher_t dispatch);
 void add_event_async();
 int add_event(char *key_event);
 int stop_event();
