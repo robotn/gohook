@@ -52,7 +52,7 @@ void dispatch_proc(iohook_event * const event) {
 			break;
 		case EVENT_MOUSE_WHEEL:
 			sprintf(buffer,
-				"{\"id\":%i,\"time\":%" PRIu64 ",\"mask\":%hu,\"reserved\":%hu,\"clicks\":%hu,\"x\":%hd,\"y\":%hd,\"type\":%d,\"ammount\":%hu,\"rotation\":%hu,\"direction\":%d}",
+				"{\"id\":%i,\"time\":%" PRIu64 ",\"mask\":%hu,\"reserved\":%hu,\"clicks\":%hu,\"x\":%hd,\"y\":%hd,\"type\":%d,\"ammount\":%hu,\"rotation\":%d,\"direction\":%d}",
 				event->type, event->time, event->mask, event->reserved,
 				event->data.wheel.clicks,
 				event->data.wheel.x,
