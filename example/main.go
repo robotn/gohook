@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 
-	"github.com/robotn/gohook"
+	hook "github.com/robotn/gohook"
 )
 
+// hook listen and return values using detailed examples
 func add() {
 	s := hook.Start()
 	defer hook.End()
@@ -24,6 +25,7 @@ func add() {
 	}
 }
 
+// base hook example
 func base() {
 	EvChan := hook.Start()
 	defer hook.End()
