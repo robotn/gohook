@@ -57,9 +57,11 @@ const (
 )
 
 // Event Holds a system event
+//
 // If it's a Keyboard event the relevant fields are:
 // Mask, Keycode, Rawcode, and Keychar,
 // Keychar is probably what you want.
+//
 // If it's a Mouse event the relevant fields are:
 // Button, Clicks, X, Y, Amount, Rotation and Direction
 type Event struct {
