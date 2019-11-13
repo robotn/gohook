@@ -11,7 +11,7 @@
 package hook
 
 /*
-#cgo darwin CFLAGS: -x objective-c  -Wno-deprecated-declarations
+#cgo darwin CFLAGS: -x objective-c -Wno-deprecated-declarations
 #cgo darwin LDFLAGS: -framework Cocoa
 
 #cgo linux CFLAGS:-I/usr/src
@@ -32,7 +32,7 @@ import (
 
 const (
 	// Version get the gohook version
-	Version = "v0.10.0.47, Sierra Nevada!"
+	Version = "v0.20.0.56, Sierra Nevada!"
 
 	// HookEnabled honk enable status
 	HookEnabled  = 1 // iota
