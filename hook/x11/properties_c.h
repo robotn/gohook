@@ -444,7 +444,7 @@ void on_library_load() {
 	// Open local display.
 	properties_disp = XOpenDisplay(XDisplayName(NULL));
 	if (properties_disp == NULL) {
-		logger(LOG_LEVEL_ERROR,	"%s [%u]: %s\n",
+		logger(LOG_LEVEL_WARN,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
 	}
 	else {

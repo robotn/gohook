@@ -1880,8 +1880,9 @@ void load_input_helper(Display *disp) {
 			is_evdev = true;
 		} else
 		#endif
+
 		if (strncmp(layout_name, prefix_xfree86, strlen(prefix_xfree86)) != 0) {
-			// logger(LOG_LEVEL_ERROR,
+			// logger(LOG_LEVEL_WARN,
 			// 		"%s [%u]: Unknown keycode name '%s', please file a bug report!\n",
 			// 		__FUNCTION__, __LINE__, layout_name);
 		}
@@ -1894,7 +1895,7 @@ void load_input_helper(Display *disp) {
 		XkbFreeClientMap(desc, XkbGBN_AllComponentsMask, True);
 	}
 	else {
-		logger(LOG_LEVEL_ERROR,
+		logger(LOG_LEVEL_WARN,
 				"%s [%u]: XkbGetKeyboard failed to locate a valid keyboard!\n",
 				__FUNCTION__, __LINE__);
 	}
