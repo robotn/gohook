@@ -67,7 +67,7 @@ build_script:
 test_script:
   # Unit tests
   - ps: Add-AppveyorTest "Unit Tests" -Outcome Running
-  - go test -u github.com/robotn/gohook...
+  - go test -v github.com/robotn/gohook...
   - ps: Update-AppveyorTest "Unit Tests" -Outcome Passed
 
 # notifications:
