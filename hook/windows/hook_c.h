@@ -314,7 +314,8 @@ LRESULT CALLBACK keyboard_hook_event_proc(int nCode, WPARAM wParam, LPARAM lPara
 
 
 static void process_button_pressed(MSLLHOOKSTRUCT *mshook, uint16_t button) {
-	uint64_t timestamp = GetMessageTime();
+	// uint64_t timestamp = GetMessageTime();
+	uint64_t timestamp = mshook->time;
 
 	// Track the number of clicks, the button must match the previous button.
 	if (button == click_button && (long int) (timestamp - click_time) <= hook_get_multi_click_time()) {
@@ -364,7 +365,7 @@ static void process_button_pressed(MSLLHOOKSTRUCT *mshook, uint16_t button) {
 
 static void process_button_released(MSLLHOOKSTRUCT *mshook, uint16_t button) {
 	// Populate mouse released event.
-	event.time = GetMessageTime();
+	event.time = mshook->time;
 	event.reserved = 0x00;
 
 	event.type = EVENT_MOUSE_RELEASED;
@@ -387,7 +388,7 @@ static void process_button_released(MSLLHOOKSTRUCT *mshook, uint16_t button) {
 	// If the pressed event was not consumed...
 	if (event.reserved ^ 0x01 && last_click.x == mshook->pt.x && last_click.y == mshook->pt.y) {
 		// Populate mouse clicked event.
-		event.time = GetMessageTime();
+		event.time = mshook->time;
 		event.reserved = 0x00;
 
 		event.type = EVENT_MOUSE_CLICKED;
@@ -414,7 +415,7 @@ static void process_button_released(MSLLHOOKSTRUCT *mshook, uint16_t button) {
 }
 
 static void process_mouse_moved(MSLLHOOKSTRUCT *mshook) {
-	uint64_t timestamp = GetMessageTime();
+	uint64_t timestamp = mshook->time;
 
 	// We received a mouse move event with the mouse actually moving.
 	// This verifies that the mouse was moved after being depressed.
@@ -462,7 +463,7 @@ static void process_mouse_wheel(MSLLHOOKSTRUCT *mshook, uint8_t direction) {
 	click_button = MOUSE_NOBUTTON;
 
 	// Populate mouse wheel event.
-	event.time = GetMessageTime();
+	event.time = mshook->time;
 	event.reserved = 0x00;
 
 	event.type = EVENT_MOUSE_WHEEL;
