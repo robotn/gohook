@@ -29,8 +29,7 @@ import (
 	"time"
 	"unsafe"
 )
-
-const (
+onst (
 	HookEnabled  = 1 //iota
 	HookDisabled = 2
 	KeyDown      = 3
@@ -292,12 +291,12 @@ func End() {
 }
 
 // AddEvent add event listener
-func AddEvent(key string) int {
-	cs := C.CString(key)
-	defer C.free(unsafe.Pointer(cs))
+// func AddEvent(key string) int {
+// 	cs := C.CString(key)
+// 	defer C.free(unsafe.Pointer(cs))
 
-	eve := C.add_event(cs)
-	geve := int(eve)
+// 	eve := C.add_event(cs)
+// 	geve := int(eve)
 
-	return geve
-}
+// 	return geve
+// }
