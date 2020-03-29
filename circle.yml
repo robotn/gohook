@@ -5,7 +5,7 @@ jobs:
     docker:
       # using custom image, see .circleci/images/primary/Dockerfile
       - image: govgo/robotgoci:1.10.3
-    working_directory: /gopath/src/github.com/robotn/gohook
+    working_directory: /gopath/src/github.com/cauefcr/ghook
     steps:
       - checkout
       # specify any bash command here prefixed with `run: `
