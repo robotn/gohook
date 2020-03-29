@@ -29,7 +29,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/go-vgo/robotgo"
 	hook "github.com/robotn/gohook"
 )
 
@@ -79,7 +78,7 @@ var (
 	pressed = make(map[uint16]bool, 256)
 	used    = []int{}
 	keys    = map[int][]uint16{}
-	cbs     = map[int]func(hook.Event){}
+	cbs     = map[int]func(Event){}
 	events  = map[uint8][]int{}
 )
 
