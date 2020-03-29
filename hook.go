@@ -198,7 +198,6 @@ func Register(when uint8, cmds []string, cb func(Event)) {
 		tmp = append(tmp, Keycode[v])
 	}
 	keys[key] = tmp
-	fmt.Println(tmp)
 	cbs[key] = cb
 	events[when] = append(events[when], key)
 	return
