@@ -73,7 +73,57 @@ type Event struct {
 var (
 	ev      = make(chan Event, 1024)
 	asyncon = false
+	pressed = make(map[uint16]bool, 256)
+	used    = []int{}
+	keys    = map[int][]uint16{}
+	cbs     = map[int]func(hook.Event){}
+	events  = map[uint8][]int{}
 )
+
+func allPressed(pressed map[uint16]bool, keys ...uint16) bool {
+
+	for _, i := range keys {
+		// fmt.Print(i)
+		if pressed[i] == false {
+			return false
+		}
+	}
+	return true
+}
+
+func Register(when uint8, cmds []string, cb func(hook.Event)) {
+	key := len(used)
+	used = append(used, key)
+	tmp := []uint16{}
+	for _, v := range cmds {
+		tmp = append(tmp, robotgo.Keycode[v])
+	}
+	keys[key] = tmp
+	fmt.Println(tmp)
+	cbs[key] = cb
+	events[when] = append(events[when], key)
+	return
+}
+
+func Process(EvChan <-chan hook.Event) (out chan bool) {
+	out = make(chan bool)
+	go func() {
+		for ev := range EvChan {
+			if ev.Kind == hook.KeyDown || ev.Kind == hook.KeyHold {
+				pressed[ev.Keycode] = true
+			} else if ev.Kind == hook.KeyUp {
+				pressed[ev.Keycode] = false
+			}
+			for _, v := range events[ev.Kind] {
+				if allPressed(pressed, keys[v]...) {
+					cbs[v](ev)
+				}
+			}
+		}
+		out <- true
+	}()
+	return out
+}
 
 func (e Event) String() string {
 	switch e.Kind {
