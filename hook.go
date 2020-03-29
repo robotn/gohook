@@ -27,9 +27,9 @@ import "C"
 import (
 	"fmt"
 	"time"
-	"unsafe"
 )
-onst (
+
+const (
 	HookEnabled  = 1 //iota
 	HookDisabled = 2
 	KeyDown      = 3
