@@ -28,8 +28,6 @@ import (
 	"fmt"
 	"time"
 	"unsafe"
-
-	hook "github.com/robotn/gohook"
 )
 
 const (

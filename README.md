@@ -20,8 +20,16 @@ import (
 func main() {
 	EvChan := hook.Start()
 	defer hook.End()
-	for ev := range EvChan {
-		fmt.Println(ev)
-	}
+	// drawing := false
+
+	hook.Register(hook.KeyDown, []string{"alt", "p"}, func(e hook.Event) {
+		fmt.Println("alt-p ", e)
+	})
+
+	hook.Register(hook.KeyDown, []string{}, func(e hook.Event) {
+		fmt.Println(e.Keycode)
+	})
+
+	<-hook.Process(EvChan)
 }
 ```
