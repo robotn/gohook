@@ -16,6 +16,9 @@
 #include <stdlib.h>
 #include "pub.h"
 #include "../chan/eb_chan.h"
+
+void dispatch_proc(iohook_event * const event);
+
 eb_chan events;
 
 void go_send(char*);
@@ -24,10 +27,15 @@ void go_sleep(void);
 bool sending = false;
 
 void startev(){
+	// puts("start_ev");
     events = eb_chan_create(1024);
     eb_chan_retain(events);
 	sending = true;
-	add_event("q");
+	// add_event("q");	
+	hook_set_logger(&loggerProc);
+	hook_set_dispatch_proc(&dispatch_proc);
+	hook_run();
+	// puts("done_ev");
 }
 
 void pollEv(){
@@ -114,89 +122,6 @@ void dispatch_proc(iohook_event * const event) {
     }
 
 	// fprintf(stdout, "----%s\n",	 buffer);
-}
-
-int add_event(char *key_event) {
-	cevent = key_event;
-	// Set the logger callback for library output.
-	hook_set_logger(&loggerProc);
-
-	// Set the event callback for IOhook events.
-	hook_set_dispatch_proc(&dispatch_proc);
-	// Start the hook and block.
-	// NOTE If EVENT_HOOK_ENABLED was delivered, the status will always succeed.
-	int status = hook_run();
-
-	switch (status) {
-		case IOHOOK_SUCCESS:
-			// Everything is ok.
-			break;
-
-		// System level errors.
-		case IOHOOK_ERROR_OUT_OF_MEMORY:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to allocate memory. (%#X)", status);
-			break;
-
-
-		// X11 specific errors.
-		case IOHOOK_ERROR_X_OPEN_DISPLAY:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to open X11 display. (%#X)", status);
-			break;
-
-		case IOHOOK_ERROR_X_RECORD_NOT_FOUND:
-			loggerProc(LOG_LEVEL_ERROR, "Unable to locate XRecord extension. (%#X)", status);
-			break;
-
-		case IOHOOK_ERROR_X_RECORD_ALLOC_RANGE:
-			loggerProc(LOG_LEVEL_ERROR, "Unable to allocate XRecord range. (%#X)", status);
-			break;
-
-		case IOHOOK_ERROR_X_RECORD_CREATE_CONTEXT:
-			loggerProc(LOG_LEVEL_ERROR, "Unable to allocate XRecord context. (%#X)", status);
-			break;
-
-		case IOHOOK_ERROR_X_RECORD_ENABLE_CONTEXT:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to enable XRecord context. (%#X)", status);
-			break;
-
-
-		// Windows specific errors.
-		case IOHOOK_ERROR_SET_WINDOWS_HOOK_EX:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to register low level windows hook. (%#X)", status);
-			break;
-
-
-		// Darwin specific errors.
-		case IOHOOK_ERROR_AXAPI_DISABLED:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to enable access for assistive devices. (%#X)", status);
-			break;
-
-		case IOHOOK_ERROR_CREATE_EVENT_PORT:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to create apple event port. (%#X)", status);
-			break;
-
-		case IOHOOK_ERROR_CREATE_RUN_LOOP_SOURCE:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to create apple run loop source. (%#X)", status);
-			break;
-
-		case IOHOOK_ERROR_GET_RUNLOOP:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to acquire apple run loop. (%#X)", status);
-			break;
-
-		case IOHOOK_ERROR_CREATE_OBSERVER:
-			loggerProc(LOG_LEVEL_ERROR, "Failed to create apple run loop observer. (%#X)", status);
-			break;
-
-		// Default error.
-		case IOHOOK_FAILURE:
-		default:
-			loggerProc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
-			break;
-	}
-
-	// return status;
-	// printf("%d\n", status);
-	return cstatus;
 }
 
 int stop_event(){

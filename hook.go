@@ -77,6 +77,7 @@ var (
 	keys    = map[int][]uint16{}
 	cbs     = map[int]func(Event){}
 	events  = map[uint8][]int{}
+	grOn    = 0
 )
 
 //from robotgo
@@ -213,11 +214,15 @@ func Process(EvChan <-chan Event) (out chan bool) {
 				pressed[ev.Keycode] = false
 			}
 			for _, v := range events[ev.Kind] {
+				if !asyncon {
+					break
+				}
 				if allPressed(pressed, keys[v]...) {
 					cbs[v](ev)
 				}
 			}
 		}
+		// fmt.Println("exiting after end (process)")
 		out <- true
 	}()
 	return out
@@ -264,16 +269,32 @@ func KeychartoRawcode(kc string) uint16 {
 // Adds global event hook to OS
 // returns event channel
 func Start() chan Event {
-	asyncon = true
+	for grOn != 0 {
+		// fmt.Println("wating for goroutines to end")
+		time.After(50 * time.Millisecond)
+	}
 	ev = make(chan Event, 1024)
-	go C.startev()
+
 	go func() {
+		grOn += 1
+		C.startev()
+		grOn -= 1
+		// fmt.Println("exiting after end (C.startev)")
+	}()
+	// fmt.Println("started ev")
+	asyncon = true
+	go func() {
+		grOn += 1
 		for {
-			C.pollEv()
-			time.Sleep(time.Millisecond * 50)
-			//todo: find smallest time that does not destroy the cpu utilization
 			if !asyncon {
+				// fmt.Println("exiting after end (start)")
+				grOn -= 1
 				return
+			} else {
+				// fmt.Println("polling events")
+				C.pollEv()
+				time.Sleep(time.Millisecond * 50)
+				//todo: find smallest time that does not destroy the cpu utilization
 			}
 		}
 	}()
@@ -282,13 +303,21 @@ func Start() chan Event {
 
 // End removes global event hook
 func End() {
+	asyncon = false
 	C.endPoll()
 	C.stop_event()
 	for len(ev) != 0 {
 		<-ev
 	}
 	close(ev)
-	asyncon = false
+	pressed = make(map[uint16]bool, 256)
+	used = []int{}
+	keys = map[int][]uint16{}
+	cbs = map[int]func(Event){}
+	events = map[uint8][]int{}
+	// for grOn != 0 {
+	// 	time.After(time.Millisecond * 50)
+	// }
 }
 
 // AddEvent add event listener

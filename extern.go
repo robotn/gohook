@@ -28,6 +28,7 @@ func go_send(s *C.char) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// log.Print("sending stuff")
 	//todo: maybe make non-bloking
 	ev <- out
 }
