@@ -265,6 +265,7 @@ func KeychartoRawcode(kc string) uint16 {
 // returns event channel
 func Start() chan Event {
 	asyncon = true
+	ev = make(chan Event, 1024)
 	go C.startev()
 	go func() {
 		for {
@@ -286,6 +287,7 @@ func End() {
 	for len(ev) != 0 {
 		<-ev
 	}
+	close(ev)
 	asyncon = false
 }
 
