@@ -24,6 +24,14 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+
+#if defined(__MINGW32__) || defined(__CYGWIN__)
+#include <windows.h>
+int sched_yield() {
+    return SwitchToThread();
+}
+#endif
+
 // #######################################################
 // ## eb_nsec.h
 // #######################################################
