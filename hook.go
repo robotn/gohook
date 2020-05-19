@@ -32,7 +32,7 @@ import (
 
 const (
 	// Version get the gohook version
-	Version = "v0.20.0.56, Sierra Nevada!"
+	Version = "v0.30.0.80, Sierra Nevada!"
 
 	// HookEnabled honk enable status
 	HookEnabled  = 1 // iota
@@ -217,7 +217,7 @@ func KeychartoRawcode(kc string) uint16 {
 	return keytoraw[kc]
 }
 
-// Start Adds global event hook to OS
+// Start adds global event hook to OS
 // returns event channel
 func Start() chan Event {
 	ev = make(chan Event, 1024)
