@@ -90,7 +90,70 @@ var (
 	asyncon = false
 
 	lck sync.RWMutex
+
+	pressed = make(map[uint16]bool, 256)
+	used    = []int{}
+
+	keys   = map[int][]uint16{}
+	cbs    = map[int]func(Event){}
+	events = map[uint8][]int{}
 )
+
+func allPressed(pressed map[uint16]bool, keys ...uint16) bool {
+	for _, i := range keys {
+		// fmt.Println(i)
+		if pressed[i] == false {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Register register gohook event
+func Register(when uint8, cmds []string, cb func(Event)) {
+	key := len(used)
+	used = append(used, key)
+	tmp := []uint16{}
+
+	for _, v := range cmds {
+		tmp = append(tmp, Keycode[v])
+	}
+
+	keys[key] = tmp
+	cbs[key] = cb
+	events[when] = append(events[when], key)
+	return
+}
+
+// Process return go hook process
+func Process(EvChan <-chan Event) (out chan bool) {
+	out = make(chan bool)
+	go func() {
+		for ev := range EvChan {
+			if ev.Kind == KeyDown || ev.Kind == KeyHold {
+				pressed[ev.Keycode] = true
+			} else if ev.Kind == KeyUp {
+				pressed[ev.Keycode] = false
+			}
+
+			for _, v := range events[ev.Kind] {
+				if !asyncon {
+					break
+				}
+
+				if allPressed(pressed, keys[v]...) {
+					cbs[v](ev)
+				}
+			}
+		}
+
+		// fmt.Println("exiting after end (process)")
+		out <- true
+	}()
+
+	return out
+}
 
 // String return hook kind string
 func (e Event) String() string {
@@ -157,18 +220,19 @@ func KeychartoRawcode(kc string) uint16 {
 // Start Adds global event hook to OS
 // returns event channel
 func Start() chan Event {
-	asyncon = true
+	ev = make(chan Event, 1024)
 	go C.start_ev()
 
+	asyncon = true
 	go func() {
 		for {
-			C.pollEv()
-			time.Sleep(time.Millisecond * 50)
-
-			// todo: find smallest time that does not destroy the cpu utilization
 			if !asyncon {
 				return
 			}
+
+			C.pollEv()
+			time.Sleep(time.Millisecond * 50)
+			//todo: find smallest time that does not destroy the cpu utilization
 		}
 	}()
 
@@ -177,14 +241,21 @@ func Start() chan Event {
 
 // End removes global event hook
 func End() {
+	asyncon = false
 	C.endPoll()
 	C.stop_event()
 
 	for len(ev) != 0 {
 		<-ev
 	}
+	close(ev)
 
-	asyncon = false
+	pressed = make(map[uint16]bool, 256)
+	used = []int{}
+
+	keys = map[int][]uint16{}
+	cbs = map[int]func(Event){}
+	events = map[uint8][]int{}
 }
 
 // AddEvent add event listener
