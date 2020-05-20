@@ -32,6 +32,7 @@
 
 #if (defined(__MINGW32__) || defined(__CYGWIN__)) && !defined(_POSIX_PRIORITY_SCHEDULING)
 #include <windows.h>
+
 int sched_yield() {
     return SwitchToThread();
 }
