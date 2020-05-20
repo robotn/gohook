@@ -30,6 +30,13 @@
 
 #include <stdint.h>
 
+#if (defined(__MINGW32__) || defined(__CYGWIN__)) && !defined(_POSIX_PRIORITY_SCHEDULING)
+#include <windows.h>
+int sched_yield() {
+    return SwitchToThread();
+}
+#endif
+
 typedef uint64_t eb_nsec; /* Units of nanoseconds */
 #define eb_nsec_zero UINT64_C(0)
 #define eb_nsec_forever UINT64_MAX
