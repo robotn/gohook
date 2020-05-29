@@ -17,6 +17,12 @@ import (
 )
 
 func main() {
+	add()
+
+	low()
+}
+
+func add() {
 	fmt.Println("--- Please press ctrl + shift + q to stop hook ---")
 	hook.Register(hook.KeyDown, []string{"q", "ctrl", "shift"}, func(e hook.Event) {
 		fmt.Println("ctrl-shift-q")
@@ -30,14 +36,17 @@ func main() {
 
 	s := hook.Start()
 	<-hook.Process(s)
+}
 
+func low() {
 	EvChan := hook.Start()
 	defer hook.End()
-	
+
 	for ev := range EvChan {
 		fmt.Println("hook: ", ev)
 	}
 }
+
 ```
 
 Based on [libuiohook](https://github.com/kwhat/libuiohook).
