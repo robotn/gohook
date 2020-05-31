@@ -32,7 +32,7 @@ import (
 
 const (
 	// Version get the gohook version
-	Version = "v0.30.1.83, Sierra Nevada!"
+	Version = "v0.30.2.88, Sierra Nevada!"
 
 	// HookEnabled honk enable status
 	HookEnabled  = 1 // iota
@@ -244,6 +244,7 @@ func End() {
 	asyncon = false
 	C.endPoll()
 	C.stop_event()
+	time.Sleep(time.Millisecond * 10)
 
 	for len(ev) != 0 {
 		<-ev
