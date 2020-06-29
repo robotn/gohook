@@ -1465,11 +1465,9 @@ KeySym unicode_to_keysym(uint16_t unicode) {
 		mid = (min + max) / 2;
 		if (keysym_unicode_table[mid].unicode < unicode) {
 			min = mid + 1;
-		}
-		else if (keysym_unicode_table[mid].unicode > unicode) {
+		} else if (keysym_unicode_table[mid].unicode > unicode) {
 			max = mid - 1;
-		}
-		else {
+		} else {
 			// Found it.
 			return keysym_unicode_table[mid].keysym;
 		}
@@ -1535,11 +1533,9 @@ size_t keysym_to_unicode(KeySym keysym, uint16_t *buffer, size_t size) {
 		mid = (min + max) / 2;
 		if (keysym_unicode_table[mid].keysym < keysym) {
 			min = mid + 1;
-		}
-		else if (keysym_unicode_table[mid].keysym > keysym) {
+		} else if (keysym_unicode_table[mid].keysym > keysym) {
 			max = mid - 1;
-		}
-		else {
+		} else {
 			// Found it.
 			if (count < size) {
 				buffer[count++] = keysym_unicode_table[mid].unicode;
@@ -1577,8 +1573,7 @@ uint16_t keycode_to_scancode(KeyCode keycode) {
 			// extra space in the lookup table due to binary padding.
 			scancode = evdev_scancode_table[keycode][0];
 		}
-	}
-	else {
+	} else {
 		// Evdev was disabled, fallback to XFree86.
 	#endif
 		unsigned short xfree86_size = sizeof(xfree86_scancode_table) / sizeof(xfree86_scancode_table[0]);
@@ -1611,8 +1606,7 @@ KeyCode scancode_to_keycode(uint16_t scancode) {
 			// but math is generally slower than memory and we cannot save any
 			// extra space in the lookup table due to binary padding.
 			keycode = evdev_scancode_table[scancode][1];
-		}
-		else {
+		} else {
 			// Offset is the lower order bits + 128
 			scancode = (scancode & 0x007F) | 0x80;
 
@@ -1620,8 +1614,7 @@ KeyCode scancode_to_keycode(uint16_t scancode) {
 				keycode = evdev_scancode_table[scancode][1];
 			}
 		}
-	}
-	else {
+	} else {
 		// Evdev was disabled, fallback to XFree86.
 	#endif
 		unsigned short xfree86_size = sizeof(xfree86_scancode_table) / sizeof(xfree86_scancode_table[0]);
@@ -1632,8 +1625,7 @@ KeyCode scancode_to_keycode(uint16_t scancode) {
 			// but math is generally slower than memory and we cannot save any
 			// extra space in the lookup table due to binary padding.
 			keycode = xfree86_scancode_table[scancode][1];
-		}
-		else {
+		} else {
 			// Offset: lower order bits + 128 (If no size optimization!)
 			scancode = (scancode & 0x007F) | 0x80;
 
@@ -1687,8 +1679,7 @@ size_t keycode_to_unicode(struct xkb_state* state, KeyCode keycode, uint16_t *bu
 			if ((unicode <= 0xD7FF || (unicode >= 0xE000 && unicode <= 0xFFFF)) && length >= 1) {
 				buffer[0] = unicode;
 				count = 1;
-			}
-			else if (unicode >= 0x10000) {
+			} else if (unicode >= 0x10000) {
 				unsigned int code = (unicode - 0x10000);
 				buffer[0] = 0xD800 | (code >> 10);
 				buffer[1] = 0xDC00 | (code & 0x3FF);
@@ -1789,20 +1780,17 @@ KeySym keycode_to_keysym(KeyCode keycode, unsigned int modifier_mask) {
 			if (modifier_mask & ShiftMask || (modifier_mask & LockMask && is_shift_lock)) {
 				// i = 0
 				keysym = keyboard_map[keycode *keysym_per_keycode];
-			}
-			else {
+			} else {
 				// i = 1
 				keysym = keyboard_map[keycode *keysym_per_keycode + 1];
 			}
-		}
-		else if (modifier_mask ^ ShiftMask && modifier_mask ^ LockMask) {
+		} else if (modifier_mask ^ ShiftMask && modifier_mask ^ LockMask) {
 			/* The Shift and Lock modifiers are both off. In this case,
 			 * the first KeySym is used.
 			 */
 			// index = 0
 			keysym = keyboard_map[keycode *keysym_per_keycode];
-		}
-		else if (modifier_mask ^ ShiftMask && modifier_mask & LockMask && is_caps_lock) {
+		} else if (modifier_mask ^ ShiftMask && modifier_mask & LockMask && is_caps_lock) {
 			/* The Shift modifier is off, and the Lock modifier is on
 			 * and is interpreted as CapsLock. In this case, the first
 			 * KeySym is used, but if that KeySym is lowercase
@@ -1818,8 +1806,7 @@ KeySym keycode_to_keysym(KeyCode keycode, unsigned int modifier_mask) {
 				XConvertCase(keysym, &lower_keysym, &upper_keysym);
 				keysym = upper_keysym;
 			}
-		}
-		else if (modifier_mask & ShiftMask && modifier_mask & LockMask && is_caps_lock) {
+		} else if (modifier_mask & ShiftMask && modifier_mask & LockMask && is_caps_lock) {
 			/* The Shift modifier is on, and the Lock modifier is on and
 			 * is interpreted as CapsLock. In this case, the second
 			 * KeySym is used, but if that KeySym is lowercase
@@ -1835,16 +1822,14 @@ KeySym keycode_to_keysym(KeyCode keycode, unsigned int modifier_mask) {
 				XConvertCase(keysym, &lower_keysym, &upper_keysym);
 				keysym = lower_keysym;
 			}
-		}
-		else if (modifier_mask & ShiftMask || (modifier_mask & LockMask && is_shift_lock) || modifier_mask & (ShiftMask + LockMask)) {
+		} else if (modifier_mask & ShiftMask || (modifier_mask & LockMask && is_shift_lock) || modifier_mask & (ShiftMask + LockMask)) {
 			/* The Shift modifier is on, or the Lock modifier is on and
 			 * is interpreted as ShiftLock, or both. In this case, the
 			 * second KeySym is used.
 			 */
 			// index = 1
 			keysym = keyboard_map[keycode *keysym_per_keycode + 1];
-		}
-		else {
+		} else {
 			logger(LOG_LEVEL_ERROR,	"%s [%u]: Unable to determine the KeySym index!\n",
 					__FUNCTION__, __LINE__);
 		}
@@ -1885,16 +1870,14 @@ void load_input_helper(Display *disp) {
 			// logger(LOG_LEVEL_WARN,
 			// 		"%s [%u]: Unknown keycode name '%s', please file a bug report!\n",
 			// 		__FUNCTION__, __LINE__, layout_name);
-		}
-		else if (layout_name == NULL) {
+		} else if (layout_name == NULL) {
 			logger(LOG_LEVEL_ERROR,
 					"%s [%u]: X atom name failure for desc->names->keycodes!\n",
 					__FUNCTION__, __LINE__);
 		}
 
 		XkbFreeClientMap(desc, XkbGBN_AllComponentsMask, True);
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_WARN,
 				"%s [%u]: XkbGetKeyboard failed to locate a valid keyboard!\n",
 				__FUNCTION__, __LINE__);
@@ -1940,23 +1923,20 @@ void load_input_helper(Display *disp) {
 				if (capsLock != 0 && modifierMap->modifiermap[i] == capsLock) {
 					is_caps_lock = true;
 					is_shift_lock = false;
-				}
-				else if (shiftLock != 0 && modifierMap->modifiermap[i] == shiftLock) {
+				} else if (shiftLock != 0 && modifierMap->modifiermap[i] == shiftLock) {
 					is_shift_lock = true;
 				}
 			}
 
 			XFree(modifierMap);
-		}
-		else {
+		} else {
 			XFree(keyboard_map);
 
 			logger(LOG_LEVEL_ERROR,
 					"%s [%u]: Unable to get modifier mapping table!\n",
 					__FUNCTION__, __LINE__);
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,
 				"%s [%u]: Unable to get keyboard mapping table!\n",
 				__FUNCTION__, __LINE__);

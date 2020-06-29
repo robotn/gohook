@@ -95,8 +95,7 @@ static void *settings_thread_proc(void *arg) {
 								__FUNCTION__, __LINE__);
 					}
 					pthread_mutex_unlock(&xrandr_mutex);
-				}
-				else {
+				} else {
 					logger(LOG_LEVEL_WARN,	"%s [%u]: XRandR is not currently available!\n",
 							__FUNCTION__, __LINE__);
 				}
@@ -106,8 +105,7 @@ static void *settings_thread_proc(void *arg) {
 		// Execute the thread cleanup handler.
 		pthread_cleanup_pop(1);
 
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: XOpenDisplay failure!\n",
 				__FUNCTION__, __LINE__);
 	}
@@ -131,8 +129,7 @@ IOHOOK_API screen_data* hook_create_screen_info(unsigned char *count) {
 
 				logger(LOG_LEVEL_WARN, "%s [%u]: Screen count overflow detected!\n",
 						__FUNCTION__, __LINE__);
-			}
-			else {
+			} else {
 				*count = (uint8_t) xine_count;
 			}
 
@@ -163,8 +160,7 @@ IOHOOK_API screen_data* hook_create_screen_info(unsigned char *count) {
 
 			logger(LOG_LEVEL_WARN, "%s [%u]: Screen count overflow detected!\n",
 					__FUNCTION__, __LINE__);
-		}
-		else {
+		} else {
 			*count = (uint8_t) xrandr_count;
 		}
 
@@ -185,8 +181,7 @@ IOHOOK_API screen_data* hook_create_screen_info(unsigned char *count) {
 					};
 
 					XRRFreeCrtcInfo(crtc_info);
-				}
-				else {
+				} else {
 					logger(LOG_LEVEL_WARN,	"%s [%u]: XRandr failed to return crtc information! (%#X)\n",
 							__FUNCTION__, __LINE__, xrandr_resources->crtcs[i]);
 				}
@@ -249,8 +244,7 @@ IOHOOK_API long int hook_get_auto_repeat_rate() {
 			}
 		}
 		#endif
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
 	}
@@ -295,8 +289,7 @@ IOHOOK_API long int hook_get_auto_repeat_delay() {
 			}
 		}
 		#endif
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
 	}
@@ -321,8 +314,7 @@ IOHOOK_API long int hook_get_pointer_acceleration_multiplier() {
 
 			value = (long int) accel_denominator;
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
 	}
@@ -343,8 +335,7 @@ IOHOOK_API long int hook_get_pointer_acceleration_threshold() {
 
 			value = (long int) threshold;
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
 	}
@@ -365,8 +356,7 @@ IOHOOK_API long int hook_get_pointer_sensitivity() {
 
 			value = (long int) accel_numerator;
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
 	}
@@ -393,8 +383,7 @@ IOHOOK_API long int hook_get_multi_click_time() {
 				successful = true;
 			}
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
 	}
@@ -422,8 +411,7 @@ IOHOOK_API long int hook_get_multi_click_time() {
 				successful = true;
 			}
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
 	}
@@ -446,8 +434,7 @@ void on_library_load() {
 	if (properties_disp == NULL) {
 		logger(LOG_LEVEL_WARN,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay failure!");
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_DEBUG,	"%s [%u]: %s\n",
 				__FUNCTION__, __LINE__, "XOpenDisplay success.");
 	}
@@ -461,8 +448,7 @@ void on_library_load() {
 	if (pthread_create(&settings_thread_id, &settings_thread_attr, settings_thread_proc, NULL) == 0) {
 		logger(LOG_LEVEL_DEBUG,	"%s [%u]: Successfully created settings thread.\n",
 				__FUNCTION__, __LINE__);
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: Failed to create settings thread!\n",
 				__FUNCTION__, __LINE__);
 	}

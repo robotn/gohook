@@ -112,8 +112,7 @@ static inline void dispatch_event(iohook_event *const event) {
 				__FUNCTION__, __LINE__, event->type);
 
 		dispatcher(event);
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_WARN,	"%s [%u]: No dispatch callback set!\n",
 				__FUNCTION__, __LINE__);
 	}
@@ -140,22 +139,19 @@ static void initialize_locks() {
 
 	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_CAPS)) {
 		set_modifier_mask(MASK_CAPS_LOCK);
-	}
-	else {
+	} else {
 		unset_modifier_mask(MASK_CAPS_LOCK);
 	}
 
 	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_NUM)) {
 		set_modifier_mask(MASK_NUM_LOCK);
-	}
-	else {
+	} else {
 		unset_modifier_mask(MASK_NUM_LOCK);
 	}
 
 	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_SCROLL)) {
 		set_modifier_mask(MASK_SCROLL_LOCK);
-	}
-	else {
+	} else {
 		unset_modifier_mask(MASK_SCROLL_LOCK);
 	}
 	#else
@@ -163,26 +159,22 @@ static void initialize_locks() {
 	if (XkbGetIndicatorState(hook->ctrl.display, XkbUseCoreKbd, &led_mask) == Success) {
 		if (led_mask & 0x01) {
 			set_modifier_mask(MASK_CAPS_LOCK);
-		}
-		else {
+		} else {
 			unset_modifier_mask(MASK_CAPS_LOCK);
 		}
 
 		if (led_mask & 0x02) {
 			set_modifier_mask(MASK_NUM_LOCK);
-		}
-		else {
+		} else {
 			unset_modifier_mask(MASK_NUM_LOCK);
 		}
 
 		if (led_mask & 0x04) {
 			set_modifier_mask(MASK_SCROLL_LOCK);
-		}
-		else {
+		} else {
 			unset_modifier_mask(MASK_SCROLL_LOCK);
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_WARN, "%s [%u]: XkbGetIndicatorState failed to get current led mask!\n",
 				__FUNCTION__, __LINE__);
 	}
@@ -231,8 +223,7 @@ static void initialize_modifiers() {
 		if (mask & Button3Mask)	{ set_modifier_mask(MASK_BUTTON3);	}
 		if (mask & Button4Mask)	{ set_modifier_mask(MASK_BUTTON4);	}
 		if (mask & Button5Mask)	{ set_modifier_mask(MASK_BUTTON5);	}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_WARN, "%s [%u]: XQueryPointer failed to get current modifiers!\n",
 				__FUNCTION__, __LINE__);
 
@@ -270,8 +261,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 
 		// Fire the hook start event.
 		dispatch_event(&event);
-	}
-	else if (recorded_data->category == XRecordEndOfData) {
+	} else if (recorded_data->category == XRecordEndOfData) {
 		// Populate the hook stop event.
 		event.time = timestamp;
 		event.reserved = 0x00;
@@ -281,8 +271,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 
 		// Fire the hook stop event.
 		dispatch_event(&event);
-	}
-	else if (recorded_data->category == XRecordFromServer || recorded_data->category == XRecordFromClient) {
+	} else if (recorded_data->category == XRecordFromServer || recorded_data->category == XRecordFromClient) {
 		// Get XRecord data.
 		XRecordDatum *data = (XRecordDatum *) recorded_data->data;
 
@@ -381,8 +370,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 					dispatch_event(&event);
 				}
 			}
-		}
-		else if (data->type == KeyRelease) {
+		} else if (data->type == KeyRelease) {
 			// The X11 KeyCode associated with this event.
 			KeyCode keycode = (KeyCode) data->event.u.u.detail;
 			KeySym keysym = 0x00;
@@ -442,8 +430,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 
 			// Fire key released event.
 			dispatch_event(&event);
-		}
-		else if (data->type == ButtonPress) {
+		} else if (data->type == ButtonPress) {
 			// X11 handles wheel events as button events.
 			if (data->event.u.u.detail == WheelUp || data->event.u.u.detail == WheelDown
 					|| data->event.u.u.detail == WheelLeft || data->event.u.u.detail == WheelRight) {
@@ -500,8 +487,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 				if (data->event.u.u.detail == WheelUp || data->event.u.u.detail == WheelLeft) {
 					// Wheel Rotated Up and Away.
 					event.data.wheel.rotation = -1;
-				}
-				else { // data->event.u.u.detail == WheelDown
+				} else { // data->event.u.u.detail == WheelDown
 					// Wheel Rotated Down and Towards.
 					event.data.wheel.rotation = 1;
 				}
@@ -509,8 +495,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 				if (data->event.u.u.detail == WheelUp || data->event.u.u.detail == WheelDown) {
 					// Wheel Rotated Up or Down.
 					event.data.wheel.direction = WHEEL_VERTICAL_DIRECTION;
-				}
-				else { // data->event.u.u.detail == WheelLeft || data->event.u.u.detail == WheelRight
+				} else { // data->event.u.u.detail == WheelLeft || data->event.u.u.detail == WheelRight
 					// Wheel Rotated Left or Right.
 					event.data.wheel.direction = WHEEL_HORIZONTAL_DIRECTION;
 				}
@@ -523,8 +508,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 
 				// Fire mouse wheel event.
 				dispatch_event(&event);
-			}
-			else {
+			} else {
 				/* This information is all static for X11, its up to the WM to
 				 * decide how to interpret the wheel events.
 				 */
@@ -566,13 +550,11 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 				if (button == hook->input.mouse.click.button && (long int) (timestamp - hook->input.mouse.click.time) <= hook_get_multi_click_time()) {
 					if (hook->input.mouse.click.count < USHRT_MAX) {
 						hook->input.mouse.click.count++;
-					}
-					else {
+					} else {
 						logger(LOG_LEVEL_WARN, "%s [%u]: Click count overflow detected!\n",
 								__FUNCTION__, __LINE__);
 					}
-				}
-				else {
+				} else {
 					// Reset the click count.
 					hook->input.mouse.click.count = 1;
 
@@ -616,8 +598,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 				// Fire mouse pressed event.
 				dispatch_event(&event);
 			}
-		}
-		else if (data->type == ButtonRelease) {
+		} else if (data->type == ButtonRelease) {
 			// X11 handles wheel events as button events.
 			if (data->event.u.u.detail != WheelUp && data->event.u.u.detail != WheelDown) {
 				/* This information is all static for X11, its up to the WM to
@@ -731,8 +712,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 					hook->input.mouse.click.count = 0;
 				}
 			}
-		}
-		else if (data->type == MotionNotify) {
+		} else if (data->type == MotionNotify) {
 			// Reset the click count.
 			if (hook->input.mouse.click.count != 0 && (long int) (timestamp - hook->input.mouse.click.time) > hook_get_multi_click_time()) {
 				hook->input.mouse.click.count = 0;
@@ -750,8 +730,7 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 			if (hook->input.mouse.is_dragged) {
 				// Create Mouse Dragged event.
 				event.type = EVENT_MOUSE_DRAGGED;
-			}
-			else {
+			} else {
 				// Create a Mouse Moved event.
 				event.type = EVENT_MOUSE_MOVED;
 			}
@@ -780,14 +759,12 @@ void hook_event_proc(XPointer closeure, XRecordInterceptData *recorded_data) {
 
 			// Fire mouse move event.
 			dispatch_event(&event);
-		}
-		else {
+		} else {
 			// In theory this *should* never execute.
 			logger(LOG_LEVEL_DEBUG,	"%s [%u]: Unhandled X11 event: %#X.\n",
 					__FUNCTION__, __LINE__, (unsigned int) data->type);
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_WARN,	"%s [%u]: Unhandled X11 hook category! (%#X)\n",
 				__FUNCTION__, __LINE__, recorded_data->category);
 	}
@@ -917,8 +894,7 @@ static int xrecord_alloc() {
 
 			// Free up the context if it was set.
 			XRecordFreeContext(hook->data.display, hook->ctrl.context);
-		}
-		else {
+		} else {
 			logger(LOG_LEVEL_ERROR,	"%s [%u]: XRecordCreateContext failure!\n",
 					__FUNCTION__, __LINE__);
 
@@ -928,8 +904,7 @@ static int xrecord_alloc() {
 
 		// Free the XRecord range.
 		XFree(hook->data.range);
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: XRecordAllocRange failure!\n",
 				__FUNCTION__, __LINE__);
 
@@ -950,8 +925,7 @@ static int xrecord_query() {
 				__FUNCTION__, __LINE__, major, minor);
 
 		status = xrecord_alloc();
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: XRecord is not currently available!\n",
 				__FUNCTION__, __LINE__);
 
@@ -978,8 +952,7 @@ static int xrecord_start() {
 		if (is_auto_repeat) {
 			logger(LOG_LEVEL_DEBUG,	"%s [%u]: Successfully enabled detectable autorepeat.\n",
 					__FUNCTION__, __LINE__);
-		}
-		else {
+		} else {
 			logger(LOG_LEVEL_WARN,	"%s [%u]: Could not enable detectable auto-repeat!\n",
 					__FUNCTION__, __LINE__);
 		}
@@ -994,13 +967,11 @@ static int xrecord_start() {
 
 			if (context != NULL) {
 				hook->input.context = xkb_context_ref(context);
-			}
-			else {
+			} else {
 				logger(LOG_LEVEL_ERROR,	"%s [%u]: xkb_context_new failure!\n",
 						__FUNCTION__, __LINE__);
 			}
-		}
-		else {
+		} else {
 			logger(LOG_LEVEL_ERROR,	"%s [%u]: xcb_connect failure! (%d)\n",
 					__FUNCTION__, __LINE__, xcb_status);
 		}
@@ -1030,8 +1001,7 @@ static int xrecord_start() {
 			hook->input.connection = NULL;
 		}
 		#endif
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: XOpenDisplay failure!\n",
 				__FUNCTION__, __LINE__);
 
@@ -1070,8 +1040,7 @@ IOHOOK_API int hook_run() {
 		// Free data associated with this hook.
 		free(hook);
 		hook = NULL;
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR,	"%s [%u]: Failed to allocate memory for hook structure!\n",
 				__FUNCTION__, __LINE__);
 
@@ -1112,8 +1081,7 @@ IOHOOK_API int hook_stop() {
 
 					status = IOHOOK_SUCCESS;
 				}
-			}
-			else {
+			} else {
 				logger(LOG_LEVEL_ERROR,	"%s [%u]: XRecordGetContext failure!\n",
 						__FUNCTION__, __LINE__);
 
@@ -1121,8 +1089,7 @@ IOHOOK_API int hook_stop() {
 			}
 
 			free(state);
-		}
-		else {
+		} else {
 			logger(LOG_LEVEL_ERROR,	"%s [%u]: Failed to allocate memory for XRecordState!\n",
 					__FUNCTION__, __LINE__);
 

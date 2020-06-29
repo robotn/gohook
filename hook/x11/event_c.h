@@ -75,8 +75,7 @@ static inline void post_key_event(iohook_event * const event) {
 			scancode_to_keycode(event->data.keyboard.keycode),
 			True,
 			0);
-	}
-	else if (event->type == EVENT_KEY_RELEASED) {
+	} else if (event->type == EVENT_KEY_RELEASED) {
 		XTestFakeKeyEvent(
 			properties_disp,
 			scancode_to_keycode(event->data.keyboard.keycode),
@@ -111,8 +110,7 @@ static inline void post_key_event(iohook_event * const event) {
 	if (event->type == EVENT_KEY_PRESSED) {
 		key_event.type = KeyPress;
 		XSendEvent(properties_disp, InputFocus, False, KeyPressMask, (XEvent *) &key_event);
-	}
-	else if (event->type == EVENT_KEY_RELEASED) {
+	} else if (event->type == EVENT_KEY_RELEASED) {
 		key_event.type = KeyRelease;
 		XSendEvent(properties_disp, InputFocus, False, KeyReleaseMask, (XEvent *) &key_event);
 	}
@@ -135,8 +133,7 @@ static inline void post_mouse_button_event(iohook_event * const event) {
 		if (event->data.mouse.x != root_x || event->data.mouse.y != root_y) {
 			// Move the pointer to the specified position.
 			XTestFakeMotionEvent(properties_disp, -1, event->data.mouse.x, event->data.mouse.y, 0);
-		}
-		else {
+		} else {
 			query_status = False;
 		}
 	}
@@ -147,19 +144,15 @@ static inline void post_mouse_button_event(iohook_event * const event) {
 		if (event->data.wheel.rotation < 0) {
 			XTestFakeButtonEvent(properties_disp, WheelUp, True, 0);
 			XTestFakeButtonEvent(properties_disp, WheelUp, False, 0);
-		}
-		else {
+		} else {
 			XTestFakeButtonEvent(properties_disp, WheelDown, True, 0);
 			XTestFakeButtonEvent(properties_disp, WheelDown, False, 0);
 		}
-	}
-	else if (event->type == EVENT_MOUSE_PRESSED) {
+	} else if (event->type == EVENT_MOUSE_PRESSED) {
 		XTestFakeButtonEvent(properties_disp, event->data.mouse.button, True, 0);
-	}
-	else if (event->type == EVENT_MOUSE_RELEASED) {
+	} else if (event->type == EVENT_MOUSE_RELEASED) {
 		XTestFakeButtonEvent(properties_disp, event->data.mouse.button, False, 0);
-	}
-	else if (event->type == EVENT_MOUSE_CLICKED) {
+	} else if (event->type == EVENT_MOUSE_CLICKED) {
 		XTestFakeButtonEvent(properties_disp, event->data.mouse.button, True, 0);
 		XTestFakeButtonEvent(properties_disp, event->data.mouse.button, False, 0);
 	}
@@ -215,8 +208,7 @@ static inline void post_mouse_button_event(iohook_event * const event) {
 		// type, amount and rotation
 		if (event->data.wheel.rotation < 0) {
 			btn_event.button = WheelUp;
-		}
-		else {
+		} else {
 			btn_event.button = WheelDown;
 		}
 	}
