@@ -72,8 +72,7 @@ IOHOOK_API screen_data* hook_create_screen_info(unsigned char *count) {
 				}
 				}
 			}
-		}
-		else {
+		} else {
 			logger(LOG_LEVEL_INFO,	"%s [%u]: multiple_get_screen_info failed: %ld. Fallback.\n",
 					__FUNCTION__, __LINE__, status);
 

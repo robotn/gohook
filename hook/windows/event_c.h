@@ -118,8 +118,7 @@ IOHOOK_API void hook_post_event(iohook_event * const event) {
 				events[events_size].ki.wScan = 0; // event->data.keyboard.keycode;
 				events[events_size].ki.time = 0; // GetSystemTime()
 				events_size++;
-			}
-			else {
+			} else {
 				logger(LOG_LEVEL_INFO, "%s [%u]: Unable to lookup scancode: %li\n",
 						__FUNCTION__, __LINE__,
 						event->data.keyboard.keycode);
@@ -135,8 +134,7 @@ IOHOOK_API void hook_post_event(iohook_event * const event) {
 				events[events_size].ki.wScan = 0; // event->data.keyboard.keycode;
 				events[events_size].ki.time = 0; // GetSystemTime()
 				events_size++;
-			}
-			else {
+			} else {
 				logger(LOG_LEVEL_INFO, "%s [%u]: Unable to lookup scancode: %li\n",
 						__FUNCTION__, __LINE__,
 						event->data.keyboard.keycode);

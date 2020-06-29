@@ -40,8 +40,7 @@ static BOOL CALLBACK monitor_enum_proc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT
 
 		if (screens->data == NULL) {
 			screens->data = (screen_data *) malloc(sizeof(screen_data));
-		}
-		else {
+		} else {
 			screens->data = (screen_data *) realloc(screens, sizeof(screen_data) * screens->count);
 		}
 
