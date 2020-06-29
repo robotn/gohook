@@ -77,26 +77,21 @@ static inline void post_mouse_button_event(iohook_event * const event, bool is_p
 	if (event->data.mouse.button == MOUSE_BUTTON1) {
 		if (is_pressed) {
 			mouse_type = kCGEventLeftMouseDown;
-		}
-		else {
+		} else {
 			mouse_type = kCGEventLeftMouseUp;
 		}
 		mouse_button = kCGMouseButtonLeft;
-	}
-	else if (event->data.mouse.button == MOUSE_BUTTON2) {
+	} else if (event->data.mouse.button == MOUSE_BUTTON2) {
 		if (is_pressed) {
 			mouse_type = kCGEventRightMouseDown;
-		}
-		else {
+		} else {
 			mouse_type = kCGEventRightMouseUp;
 		}
 		mouse_button = kCGMouseButtonRight;
-	}
-	else {
+	} else {
 		if (is_pressed) {
 			mouse_type = kCGEventOtherMouseDown;
-		}
-		else {
+		} else {
 			mouse_type = kCGEventOtherMouseUp;
 		}
         mouse_button = event->data.mouse.button - 1;
@@ -125,8 +120,7 @@ static inline void post_mouse_wheel_event(iohook_event * const event) {
 	if (event->data.wheel.type == WHEEL_BLOCK_SCROLL) {
 		// Scrolling data is line-based.
 		scroll_unit = kCGScrollEventUnitLine;
-	}
-	else {
+	} else {
 		// Scrolling data is pixel-based.
 		scroll_unit = kCGScrollEventUnitPixel;
 	}
@@ -156,8 +150,7 @@ static inline void post_mouse_motion_event(iohook_event * const event) {
 			),
 			0
 		);
-	}
-	else if (event->mask & MASK_BUTTON1) {
+	} else if (event->mask & MASK_BUTTON1) {
 		cg_event = CGEventCreateMouseEvent(src,
 			kCGEventLeftMouseDragged,
 			CGPointMake(
@@ -166,8 +159,7 @@ static inline void post_mouse_motion_event(iohook_event * const event) {
 			),
 			kCGMouseButtonLeft
 		);
-	}
-	else if (event->mask & MASK_BUTTON2) {
+	} else if (event->mask & MASK_BUTTON2) {
 		cg_event = CGEventCreateMouseEvent(src,
 			kCGEventRightMouseDragged,
 			CGPointMake(
@@ -176,8 +168,7 @@ static inline void post_mouse_motion_event(iohook_event * const event) {
 			),
 			kCGMouseButtonRight
 		);
-	}
-	else {
+	} else {
 		cg_event = CGEventCreateMouseEvent(src,
 			kCGEventOtherMouseDragged,
 			CGPointMake(
