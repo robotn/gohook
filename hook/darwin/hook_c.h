@@ -104,8 +104,7 @@ static inline void dispatch_event(iohook_event *const event) {
 				__FUNCTION__, __LINE__, event->type);
 
 		dispatcher(event);
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_WARN,	"%s [%u]: No dispatch callback set!\n",
 				__FUNCTION__, __LINE__);
 	}
@@ -264,8 +263,7 @@ static int start_message_port_runloop() {
 						__FUNCTION__, __LINE__);
 
 				status = IOHOOK_SUCCESS;
-			}
-			else {
+			} else {
 				logger(LOG_LEVEL_ERROR,	"%s [%u]: CFRunLoopSourceCreate failure!\n",
 						__FUNCTION__, __LINE__);
 
@@ -273,15 +271,13 @@ static int start_message_port_runloop() {
 			}
 
 			pthread_mutex_unlock(&msg_port_mutex);
-		}
-		else {
+		} else {
 			logger(LOG_LEVEL_ERROR,	"%s [%u]: CFRunLoopObserverCreate failure!\n",
 					__FUNCTION__, __LINE__);
 
 			status = IOHOOK_ERROR_CREATE_OBSERVER;
 		}
-	}
-	else {
+	} else {
 		logger(LOG_LEVEL_ERROR, "%s [%u]: No available TIS Message pointer.\n",
 				__FUNCTION__, __LINE__);
 	}
@@ -411,8 +407,7 @@ static inline void process_key_pressed(uint64_t timestamp, CGEventRef event_ref)
 
 				// Wait for a lock while the main runloop processes they key typed event.
 				pthread_cond_wait(&msg_port_cond, &msg_port_mutex);
-			}
-			else {
+			} else {
 				logger(LOG_LEVEL_WARN,	"%s [%u]: Failed to signal RunLoop main!\n",
 						__FUNCTION__, __LINE__);
 			}
@@ -952,7 +947,6 @@ CGEventRef hook_event_proc(CGEventTapProxy tap_proxy, CGEventType type, CGEventR
 			process_modifier_changed(timestamp, event_ref);
 			break;
 
-		//b
 		// case NX_SYSDEFINED:
 		// 	process_system_key(timestamp, event_ref);
 		// 	break;
@@ -1230,8 +1224,7 @@ IOHOOK_API int hook_run() {
 
 										// Free the TIS Message.
 										free(tis_message);
-									}
-									else {
+									} else {
 										logger(LOG_LEVEL_ERROR, "%s [%u]: Failed to allocate memory for TIS message structure!\n",
 												__FUNCTION__, __LINE__);
 
@@ -1242,8 +1235,7 @@ IOHOOK_API int hook_run() {
 									// Invalidate and free hook observer.
 									CFRunLoopObserverInvalidate(hook->observer);
 									CFRelease(hook->observer);
-								}
-								else {
+								} else {
 									// We cant do a whole lot of anything if we cant
 									// create run loop observer.
 									logger(LOG_LEVEL_ERROR,	"%s [%u]: CFRunLoopObserverCreate failure!\n",
@@ -1252,8 +1244,7 @@ IOHOOK_API int hook_run() {
 									// Set the exit status.
 									status = IOHOOK_ERROR_CREATE_OBSERVER;
 								}
-							}
-							else {
+							} else {
 								logger(LOG_LEVEL_ERROR,	"%s [%u]: CFRunLoopGetCurrent failure!\n",
 										__FUNCTION__, __LINE__);
 
@@ -1263,8 +1254,7 @@ IOHOOK_API int hook_run() {
 
 							// Clean up the event source.
 							CFRelease(hook->source);
-						}
-						else {
+						} else {
 							logger(LOG_LEVEL_ERROR,	"%s [%u]: CFMachPortCreateRunLoopSource failure!\n",
 									__FUNCTION__, __LINE__);
 
@@ -1275,8 +1265,7 @@ IOHOOK_API int hook_run() {
 						// Stop the CFMachPort from receiving any more messages.
 						CFMachPortInvalidate(hook->port);
 						CFRelease(hook->port);
-					}
-					else {
+					} else {
 						logger(LOG_LEVEL_ERROR,	"%s [%u]: Failed to create event port!\n",
 								__FUNCTION__, __LINE__);
 
