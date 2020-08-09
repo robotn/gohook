@@ -102,9 +102,7 @@ var (
 func allPressed(pressed map[uint16]bool, keys ...uint16) bool {
 	for _, i := range keys {
 		// fmt.Println(i)
-		if pressed[i] == false {
-			return false
-		}
+		return !pressed[i]
 	}
 
 	return true
@@ -123,7 +121,7 @@ func Register(when uint8, cmds []string, cb func(Event)) {
 	keys[key] = tmp
 	cbs[key] = cb
 	events[when] = append(events[when], key)
-	return
+	// return
 }
 
 // Process return go hook process
@@ -152,7 +150,7 @@ func Process(EvChan <-chan Event) (out chan bool) {
 		out <- true
 	}()
 
-	return out
+	return
 }
 
 // String return hook kind string
