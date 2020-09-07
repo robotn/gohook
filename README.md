@@ -13,7 +13,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/robotn/gohook"
+	hook "github.com/robotn/gohook"
 )
 
 func main() {
