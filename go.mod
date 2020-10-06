@@ -2,4 +2,4 @@ module github.com/robotn/gohook
 
 go 1.13
 
-require github.com/vcaesar/tt v0.10.0
+require github.com/vcaesar/tt v0.10.1
