@@ -102,7 +102,9 @@ var (
 func allPressed(pressed map[uint16]bool, keys ...uint16) bool {
 	for _, i := range keys {
 		// fmt.Println(i)
-		return !pressed[i]
+		if !pressed[i] {
+			return false
+		}
 	}
 
 	return true
