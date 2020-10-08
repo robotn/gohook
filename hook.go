@@ -32,7 +32,7 @@ import (
 
 const (
 	// Version get the gohook version
-	Version = "v0.30.2.88, Sierra Nevada!"
+	Version = "v0.30.4.100, Sierra Nevada!"
 
 	// HookEnabled honk enable status
 	HookEnabled  = 1 // iota
@@ -50,6 +50,7 @@ const (
 	MouseWheel = 11
 
 	FakeEvent = 12
+
 	// Keychar could be v
 	CharUndefined = 0xFFFF
 	WheelUp       = -1
@@ -127,10 +128,10 @@ func Register(when uint8, cmds []string, cb func(Event)) {
 }
 
 // Process return go hook process
-func Process(EvChan <-chan Event) (out chan bool) {
+func Process(evChan <-chan Event) (out chan bool) {
 	out = make(chan bool)
 	go func() {
-		for ev := range EvChan {
+		for ev := range evChan {
 			if ev.Kind == KeyDown || ev.Kind == KeyHold {
 				pressed[ev.Keycode] = true
 			} else if ev.Kind == KeyUp {
