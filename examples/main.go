@@ -6,14 +6,14 @@ import (
 	hook "github.com/robotn/gohook"
 )
 
-func addEvent() {
+func registerEvent() {
 	fmt.Println("--- Please press ctrl + shift + q to stop hook ---")
 	hook.Register(hook.KeyDown, []string{"q", "ctrl", "shift"}, func(e hook.Event) {
 		fmt.Println("ctrl-shift-q")
 		hook.End()
 	})
 
-	fmt.Println("--- Please press w---")
+	fmt.Println("--- Please press w ---")
 	hook.Register(hook.KeyDown, []string{"w"}, func(e hook.Event) {
 		fmt.Println("w-")
 	})
@@ -54,7 +54,7 @@ func base() {
 }
 
 func main() {
-	addEvent()
+	registerEvent()
 
 	base()
 

@@ -156,7 +156,7 @@ func Process(evChan <-chan Event) (out chan bool) {
 	return
 }
 
-// String return hook kind string
+// String return formatted hook kind string
 func (e Event) String() string {
 	switch e.Kind {
 	case HookEnabled:
@@ -202,7 +202,7 @@ func (e Event) String() string {
 		return fmt.Sprintf("%v - Event: {Kind: FakeEvent}", e.When)
 	}
 
-	return "Unknown event, contact the mantainers"
+	return "Unknown event, contact the mantainers."
 }
 
 // RawcodetoKeychar rawcode to keychar
