@@ -597,8 +597,8 @@ static inline void process_system_key(uint64_t timestamp, CGEventRef event_ref) 
 			#endif
 
 			// int
-			uint16_t key_code = ((uint16_t)data & 0xFFFF0000) >> 16;
-			uint16_t key_flags = ((uint16_t)data & 0xFFFF);
+			uint64_t key_code = ((uint64_t)data & 0xFFFF0000) >> 16;
+			uint64_t key_flags = ((uint64_t)data & 0xFFFF); 
 			//int key_state = (key_flags & 0xFF00) >> 8;
 			bool key_down = (key_flags & 0x1) > 0;
 
