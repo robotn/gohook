@@ -32,7 +32,7 @@ import (
 
 const (
 	// Version get the gohook version
-	Version = "v0.30.4.100, Sierra Nevada!"
+	Version = "v0.31.2.113, Sierra Nevada!"
 
 	// HookEnabled honk enable status
 	HookEnabled  = 1 // iota
