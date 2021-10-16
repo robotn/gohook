@@ -39,10 +39,10 @@ func add() {
 }
 
 func low() {
-	EvChan := hook.Start()
+	evChan := hook.Start()
 	defer hook.End()
 
-	for ev := range EvChan {
+	for ev := range evChan {
 		fmt.Println("hook: ", ev)
 	}
 }
