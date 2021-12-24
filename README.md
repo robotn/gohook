@@ -7,6 +7,20 @@
 [![GoDoc](https://godoc.org/github.com/robotn/gohook?status.svg)](https://godoc.org/github.com/robotn/gohook)
 <!-- This is a work in progress. -->
 
+## Requirements (Linux):
+
+[Robotgo-requirements-event](https://github.com/go-vgo/robotgo#requirements)
+
+## Install:
+
+With Go module support (Go 1.11+), just import:
+
+```go
+import "github.com/robotn/gohook"
+```
+
+## Examples:
+
 ```Go
 package main
 
