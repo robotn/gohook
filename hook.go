@@ -261,7 +261,7 @@ func End() {
 }
 
 // AddEvent add event listener
-func AddEvent(key string) int {
+func addEvent(key string) int {
 	cs := C.CString(key)
 	defer C.free(unsafe.Pointer(cs))
 
