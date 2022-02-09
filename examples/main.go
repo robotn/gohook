@@ -22,6 +22,20 @@ func registerEvent() {
 	<-hook.Process(s)
 }
 
+func addMouse() {
+	fmt.Println("--- Please press left mouse button to see it's position and the right mouse button to exit ---")
+	hook.Register(hook.MouseDown, []string{}, func(e hook.Event) {
+		if e.Button == hook.MouseMap["left"] {
+			fmt.Printf("mouse left @ %v - %v\n", e.X, e.Y)
+		} else if e.Button == hook.MouseMap["right"] {
+			hook.End()
+		}
+	})
+
+	s := hook.Start()
+	<-hook.Process(s)
+}
+
 // hook listen and return values using detailed examples
 func add() {
 	fmt.Println("hook add...")
@@ -50,6 +64,9 @@ func base() {
 
 	for ev := range evChan {
 		fmt.Println("hook: ", ev)
+		if ev.Keychar == 'q' {
+			break
+		}
 	}
 }
 
@@ -59,4 +76,5 @@ func main() {
 	base()
 
 	add()
+	addMouse()
 }

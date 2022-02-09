@@ -73,9 +73,7 @@ struct _MEvent {
 
 typedef struct _MEvent MEvent;
 // typedef MMBitmap *MMBitmapRef;
-
 MEvent mEvent;
-
 
 bool loggerProc(unsigned int level, const char *format, ...) {
 	bool status = false;
