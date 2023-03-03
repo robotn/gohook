@@ -12,11 +12,11 @@ package hook
 
 import "github.com/vcaesar/keycode"
 
-// MouseMap robotgo hook mouse's code map
+// MouseMap defines the robotgo hook mouse's code map
 var MouseMap = keycode.MouseMap
 
-// Keycode robotgo hook key's code map
+// Keycode defines the robotgo hook key's code map
 var Keycode = keycode.Keycode
 
-// Special is the special key map
+// Special defines the special key map
 var Special = keycode.Special

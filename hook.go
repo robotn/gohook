@@ -32,7 +32,7 @@ import (
 
 const (
 	// Version get the gohook version
-	Version = "v0.31.2.113, Sierra Nevada!"
+	Version = "v0.40.0.123, Sierra Nevada!"
 
 	// HookEnabled honk enable status
 	HookEnabled  = 1 // iota
@@ -260,7 +260,7 @@ func End() {
 	events = map[uint8][]int{}
 }
 
-// AddEvent add event listener
+// AddEvent add the block event listener
 func addEvent(key string) int {
 	cs := C.CString(key)
 	defer C.free(unsafe.Pointer(cs))
@@ -271,7 +271,7 @@ func addEvent(key string) int {
 	return geve
 }
 
-// StopEvent stop event listener
+// StopEvent stop the block event listener
 func StopEvent() {
 	C.stop_event()
 }
