@@ -92,10 +92,12 @@ var (
 
 	lck sync.RWMutex
 
-	pressed = make(map[uint16]bool, 256)
-	used    = []int{}
+	pressed   = make(map[uint16]bool, 256)
+	uppressed = make(map[uint16]bool, 256)
+	used      = []int{}
 
 	keys   = map[int][]uint16{}
+	upkeys = map[int][]uint16{}
 	cbs    = map[int]func(Event){}
 	events = map[uint8][]int{}
 )
@@ -117,11 +119,17 @@ func Register(when uint8, cmds []string, cb func(Event)) {
 	used = append(used, key)
 	tmp := []uint16{}
 
+	uptmp := []uint16{}
+
 	for _, v := range cmds {
+		if when == KeyUp {
+			uptmp = append(uptmp, Keycode[v])
+		}
 		tmp = append(tmp, Keycode[v])
 	}
 
 	keys[key] = tmp
+	upkeys[key] = uptmp
 	cbs[key] = cb
 	events[when] = append(events[when], key)
 	// return
@@ -134,6 +142,7 @@ func Process(evChan <-chan Event) (out chan bool) {
 		for ev := range evChan {
 			if ev.Kind == KeyDown || ev.Kind == KeyHold {
 				pressed[ev.Keycode] = true
+				uppressed[ev.Keycode] = true
 			} else if ev.Kind == KeyUp {
 				pressed[ev.Keycode] = false
 			}
@@ -145,6 +154,13 @@ func Process(evChan <-chan Event) (out chan bool) {
 
 				if allPressed(pressed, keys[v]...) {
 					cbs[v](ev)
+				} else if ev.Kind == KeyUp {
+					//uppressed[ev.Keycode] = true
+					if allPressed(uppressed, upkeys[v]...) {
+						uppressed = make(map[uint16]bool, 256)
+						cbs[v](ev)
+					}
+
 				}
 			}
 		}
@@ -253,6 +269,7 @@ func End() {
 	close(ev)
 
 	pressed = make(map[uint16]bool, 256)
+	uppressed = make(map[uint16]bool, 256)
 	used = []int{}
 
 	keys = map[int][]uint16{}
