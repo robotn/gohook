@@ -118,7 +118,6 @@ func Register(when uint8, cmds []string, cb func(Event)) {
 	key := len(used)
 	used = append(used, key)
 	tmp := []uint16{}
-
 	uptmp := []uint16{}
 
 	for _, v := range cmds {
@@ -160,7 +159,6 @@ func Process(evChan <-chan Event) (out chan bool) {
 						uppressed = make(map[uint16]bool, 256)
 						cbs[v](ev)
 					}
-
 				}
 			}
 		}
