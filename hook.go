@@ -134,6 +134,68 @@ func Register(when uint8, cmds []string, cb func(Event)) {
 	// return
 }
 
+// Unregister removes a previously registered hook event handler
+// It takes the same parameters as Register to identify which hook to remove
+func Unregister(when uint8, cmds []string) bool {
+	lck.Lock()
+	defer lck.Unlock()
+
+	targetKeys := []uint16{}
+	for _, v := range cmds {
+		targetKeys = append(targetKeys, Keycode[v])
+	}
+
+	if eventKeys, ok := events[when]; ok {
+		for i, keyIndex := range eventKeys {
+			if equalKeySlices(keys[keyIndex], targetKeys) {
+				events[when] = append(eventKeys[:i], eventKeys[i+1:]...)
+
+				delete(keys, keyIndex)
+				delete(cbs, keyIndex)
+
+				for j, usedKey := range used {
+					if usedKey == keyIndex {
+						used = append(used[:j], used[j+1:]...)
+						break
+					}
+				}
+			}
+		}
+	}
+}
+
+func equalKeySlices(a, b []uint16) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	mapA := make(map[uint16]int)
+	mapB := make(map[uint16]int)
+
+	for _, k := range a {
+		mapA[k]++
+	}
+
+	for _, k := range b {
+		mapB[k]++
+	}
+
+	for k, v := range mapA {
+		if mapB[k] != v {
+			return false
+		}
+	}
+
+	for k, v := range mapB {
+		if mapA[k] != v {
+			return false
+		}
+	}
+
+	return true
+}
+
+
 // Process return go hook process
 func Process(evChan <-chan Event) (out chan bool) {
 	out = make(chan bool)
@@ -290,3 +352,4 @@ func addEvent(key string) int {
 func StopEvent() {
 	C.stop_event()
 }
+
