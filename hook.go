@@ -25,6 +25,7 @@ import "C"
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 	"unsafe"
@@ -224,11 +225,17 @@ func RawcodetoKeychar(r uint16) string {
 	lck.RLock()
 	defer lck.RUnlock()
 
+	if runtime.GOOS == "darwin" {
+		return rawToKeyDarwin[r]
+	}
 	return raw2key[r]
 }
 
 // KeychartoRawcode key char to rawcode
 func KeychartoRawcode(kc string) uint16 {
+	if runtime.GOOS == "darwin" {
+		return keyToRawDarwin[kc]
+	}
 	return keytoraw[kc]
 }
 
