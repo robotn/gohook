@@ -234,9 +234,14 @@ func KeychartoRawcode(kc string) uint16 {
 
 // Start adds global event hook to OS
 // returns event channel
-func Start() chan Event {
+func Start(tm ...int) chan Event {
 	ev = make(chan Event, 1024)
 	go C.start_ev()
+
+	tm1 := 50
+	if len(tm) > 0 {
+		tm1 = tm[0]
+	}
 
 	asyncon = true
 	go func() {
@@ -246,7 +251,7 @@ func Start() chan Event {
 			}
 
 			C.pollEv()
-			time.Sleep(time.Millisecond * 50)
+			time.Sleep(time.Millisecond * time.Duration(tm1))
 			//todo: find smallest time that does not destroy the cpu utilization
 		}
 	}()
