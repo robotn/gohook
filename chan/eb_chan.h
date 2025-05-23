@@ -182,7 +182,7 @@ bool eb_port_wait(eb_port p, eb_nsec timeout);
 #elif __linux__
     #define EB_SYS_LINUX 1
 #else
-//    #error Unsupported system
+    //  #error Unsupported system
 #endif
 
 /* ## Variables */
@@ -225,6 +225,8 @@ size_t ncores() {
         eb_assert_or_recover(ncores > 0 && ncores <= SIZE_MAX, return 0);
 
         return (size_t)ncores;
+    #else
+        return 0;
     #endif
 }
 
@@ -317,6 +319,8 @@ eb_nsec eb_time_now() {
     eb_assert_or_recover(!r, return 0);
 
     return ((uint64_t)ts.tv_sec * eb_nsec_per_sec) + ts.tv_nsec;
+#else
+    return 0;
 #endif
 }
 
