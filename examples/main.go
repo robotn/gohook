@@ -1,84 +1,39 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"strings"
+	"time"
 
 	hook "github.com/robotn/gohook"
 )
 
 func main() {
-	registerEvent()
+	keyBindingsArg := flag.String("keyBindings", "", "Key bindings")
+	flag.Parse()
 
-	base()
+	if *keyBindingsArg == "" {
+		fmt.Println("Usage: ptt.exe -keyBindings <keyBindings>")
+		return
+	}
 
-	add()
-	addMouse()
-}
-
-func registerEvent() {
-	fmt.Println("--- Please press ctrl + shift + q to stop hook ---")
-	hook.Register(hook.KeyDown, []string{"q", "ctrl", "shift"}, func(e hook.Event) {
-		fmt.Println("ctrl-shift-q")
-		hook.End()
+	keyBindings := strings.Split(*keyBindingsArg, ",")
+	now := time.Now()
+	hook.Register(hook.KeyDown, keyBindings, func(e hook.Event) {
+		fmt.Println(e)
 	})
-
-	fmt.Println("--- Please press w ---")
-	hook.Register(hook.KeyDown, []string{"w"}, func(e hook.Event) {
-		fmt.Println("KeyDown: ", "w-")
+	hook.Register(hook.MouseDown, keyBindings, func(e hook.Event) {
+		fmt.Println(e)
 	})
+	timepassed := time.Since(now)
+	fmt.Printf("hook.Register: %v\n", timepassed)
 
-	hook.Register(hook.KeyUp, []string{"w"}, func(e hook.Event) {
-		fmt.Println("KeyUp: ", "w")
-	})
-
-	s := hook.Start()
-	<-hook.Process(s)
-}
-
-func addMouse() {
-	fmt.Println("--- Please press left mouse button to see it's position and the right mouse button to exit ---")
-	hook.Register(hook.MouseDown, []string{}, func(e hook.Event) {
-		if e.Button == hook.MouseMap["left"] {
-			fmt.Printf("mouse left @ %v - %v\n", e.X, e.Y)
-		} else if e.Button == hook.MouseMap["right"] {
-			hook.End()
-		}
-	})
-
-	s := hook.Start()
-	<-hook.Process(s)
-}
-
-// hook listen and return values using detailed examples
-func add() {
-	fmt.Println("hook add...")
+	hook.SetDebugLevel(hook.Silent)
+	fmt.Println("starting hook")
 	s := hook.Start()
 	defer hook.End()
 
-	ct := false
-	for {
-		i := <-s
-
-		if i.Kind == hook.KeyHold && i.Rawcode == 59 {
-			ct = true
-		}
-
-		if ct && i.Rawcode == 12 {
-			break
-		}
-	}
-}
-
-// base hook example
-func base() {
-	fmt.Println("hook start...")
-	evChan := hook.Start()
-	defer hook.End()
-
-	for ev := range evChan {
-		fmt.Println("hook: ", ev)
-		if ev.Keychar == 'q' {
-			break
-		}
-	}
+	fmt.Println("processing")
+	<-hook.Process(s)
 }

@@ -56,7 +56,13 @@ const (
 	CharUndefined = 0xFFFF
 	WheelUp       = -1
 	WheelDown     = 1
+	Debug         = DebugLevel(13)
+	Silent        = DebugLevel(14)
 )
+
+type Kind uint8
+type Code uint16
+type DebugLevel uint8
 
 // Event Holds a system event
 //
@@ -67,7 +73,7 @@ const (
 // If it's a Mouse event the relevant fields are:
 // Button, Clicks, X, Y, Amount, Rotation and Direction
 type Event struct {
-	Kind     uint8 `json:"id"`
+	Kind     Kind `json:"id"`
 	When     time.Time
 	Mask     uint16 `json:"mask"`
 	Reserved uint16 `json:"reserved"`
@@ -88,51 +94,102 @@ type Event struct {
 }
 
 var (
-	ev      = make(chan Event, 1024)
-	asyncon = false
-
-	lck sync.RWMutex
-
-	pressed   = make(map[uint16]bool, 256)
-	uppressed = make(map[uint16]bool, 256)
-	used      = []int{}
-
-	keys   = map[int][]uint16{}
-	upkeys = map[int][]uint16{}
-	cbs    = map[int]func(Event){}
-	events = map[uint8][]int{}
+	/*
+		{
+			KeyDown: {
+				[0,1,2,4]: func(e Event) {
+					fmt.Println("a")
+				},
+			},
+		}
+	*/
+	registry      = make(map[Kind]map[[4]Code]func(Event))
+	mouseRegistry = make(map[Kind]map[[4]Code]func(Event))
+	pressed       = make(map[Code]bool)
+	mousePressed  = make(map[Code]bool)
+	ev            = make(chan Event, 1024)
+	lck           = sync.RWMutex{}
+	debugLevel    = DebugLevel(0)
 )
 
-func allPressed(pressed map[uint16]bool, keys ...uint16) bool {
-	for _, i := range keys {
-		// fmt.Println(i)
-		if !pressed[i] {
+func allPressed(pressed map[Code]bool, keys [4]Code) bool {
+	for _, key := range keys {
+		if key != 0 && !pressed[key] {
 			return false
 		}
 	}
-
 	return true
 }
 
-// Register register gohook event
-func Register(when uint8, cmds []string, cb func(Event)) {
-	key := len(used)
-	used = append(used, key)
-	tmp := []uint16{}
-	uptmp := []uint16{}
-
-	for _, v := range cmds {
-		if when == KeyUp {
-			uptmp = append(uptmp, Keycode[v])
+func allUnpressed(pressed map[Code]bool, keys [4]Code) bool {
+	for _, key := range keys {
+		if key != 0 && pressed[key] {
+			return false
 		}
-		tmp = append(tmp, Keycode[v])
+	}
+	return true
+}
+
+func SetDebugLevel(level DebugLevel) {
+	debugLevel = level
+}
+
+// Register gohook event
+func Register(when Kind, cmds []string, cb func(Event)) error {
+	if len(cmds) > 4 {
+		return fmt.Errorf("too many keys. max 4")
 	}
 
-	keys[key] = tmp
-	upkeys[key] = uptmp
-	cbs[key] = cb
-	events[when] = append(events[when], key)
-	// return
+	tmp := [4]Code{}
+
+	for i, v := range cmds {
+		var code uint16
+		var ok bool
+		if when == KeyDown || when == KeyUp {
+			code, ok = Keycode[v]
+			if !ok {
+				fmt.Printf("invalid key: %s\n", v)
+				fmt.Println("skipping...")
+				return nil
+			}
+		} else {
+			if v == "mleft" {
+				v = "left"
+			}
+
+			if v == "mright" {
+				v = "right"
+			}
+
+			if v == "mcenter" {
+				v = "center"
+			}
+
+			code, ok = MouseMap[v]
+			if !ok {
+				fmt.Printf("invalid mouse button: %s\n", v)
+				fmt.Println("skipping..")
+				return nil
+			}
+		}
+
+		tmp[i] = Code(code)
+	}
+
+	if when == KeyDown || when == KeyUp {
+		if _, ok := registry[when]; !ok {
+			registry[when] = make(map[[4]Code]func(Event))
+		}
+		registry[when][tmp] = cb
+	} else {
+		if _, ok := mouseRegistry[when]; !ok {
+			mouseRegistry[when] = make(map[[4]Code]func(Event))
+		}
+		mouseRegistry[when][tmp] = cb
+	}
+
+	hookLog("registered %v as %v\n", cmds, tmp)
+	return nil
 }
 
 // Process return go hook process
@@ -140,31 +197,71 @@ func Process(evChan <-chan Event) (out chan bool) {
 	out = make(chan bool)
 	go func() {
 		for ev := range evChan {
-			if ev.Kind == KeyDown || ev.Kind == KeyHold {
-				pressed[ev.Keycode] = true
-				uppressed[ev.Keycode] = true
-			} else if ev.Kind == KeyUp {
-				pressed[ev.Keycode] = false
+			if ev.Kind != KeyDown && ev.Kind != KeyUp && ev.Kind != MouseDown && ev.Kind != MouseUp {
+				continue
 			}
 
-			for _, v := range events[ev.Kind] {
-				if !asyncon {
-					break
-				}
+			hookLog("processing %v\n", ev)
+			switch ev.Kind {
+			case KeyDown, KeyHold:
+				hookLog("setting pressed[%v] = true\n", ev.Keycode)
+				pressed[Code(ev.Keycode)] = true
+			case KeyUp:
+				hookLog("setting pressed[%v] = false\n", ev.Keycode)
+				pressed[Code(ev.Keycode)] = false
+			case MouseDown:
+				hookLog("setting mousePressed[%v] = true\n", ev.Button)
+				mousePressed[Code(ev.Button)] = true
+			case MouseUp:
+				hookLog("setting mousePressed[%v] = false\n", ev.Button)
+				mousePressed[Code(ev.Button)] = false
+			}
 
-				if allPressed(pressed, keys[v]...) {
-					cbs[v](ev)
-				} else if ev.Kind == KeyUp {
-					//uppressed[ev.Keycode] = true
-					if allPressed(uppressed, upkeys[v]...) {
-						uppressed = make(map[uint16]bool, 256)
-						cbs[v](ev)
+			if ev.Kind == KeyDown || ev.Kind == KeyUp {
+				for combination, v := range registry[ev.Kind] {
+					switch ev.Kind {
+					case KeyDown:
+						hookLog("checking if %v is pressed\n", combination)
+						if allPressed(pressed, combination) {
+							hookLog("calling %v\n", combination)
+							v(ev)
+						} else {
+							hookLog("not all keys are pressed\n")
+						}
+					case KeyUp:
+						hookLog("checking if %v is pressed\n", combination)
+						if allUnpressed(pressed, combination) {
+							hookLog("calling %v\n", combination)
+							v(ev)
+						} else {
+							hookLog("not all keys are pressed\n")
+						}
+					}
+				}
+			} else {
+				for combination, v := range mouseRegistry[ev.Kind] {
+					switch ev.Kind {
+					case MouseDown:
+						hookLog("checking if %v is pressed\n", combination)
+						if allPressed(mousePressed, combination) {
+							hookLog("calling %v\n", combination)
+							v(ev)
+						} else {
+							hookLog("not all keys are pressed\n")
+						}
+					case MouseUp:
+						hookLog("checking if %v is pressed\n", combination)
+						if allUnpressed(mousePressed, combination) {
+							hookLog("calling %v\n", combination)
+							v(ev)
+						} else {
+							hookLog("not all keys are pressed\n")
+						}
 					}
 				}
 			}
 		}
 
-		// fmt.Println("exiting after end (process)")
 		out <- true
 	}()
 
@@ -212,40 +309,17 @@ func (e Event) String() string {
 	return "Unknown event, contact the mantainers."
 }
 
-// RawcodetoKeychar rawcode to keychar
-func RawcodetoKeychar(r uint16) string {
-	lck.RLock()
-	defer lck.RUnlock()
-
-	return raw2key[r]
-}
-
-// KeychartoRawcode key char to rawcode
-func KeychartoRawcode(kc string) uint16 {
-	return keytoraw[kc]
-}
-
 // Start adds global event hook to OS
 // returns event channel
-func Start(tm ...int) chan Event {
+func Start() chan Event {
 	ev = make(chan Event, 1024)
+	hookLog("starting C.start_ev")
 	go C.start_ev()
 
-	tm1 := 50
-	if len(tm) > 0 {
-		tm1 = tm[0]
-	}
-
-	asyncon = true
 	go func() {
 		for {
-			if !asyncon {
-				return
-			}
-
 			C.pollEv()
-			time.Sleep(time.Millisecond * time.Duration(tm1))
-			//todo: find smallest time that does not destroy the cpu utilization
+			time.Sleep(time.Millisecond * 10)
 		}
 	}()
 
@@ -254,7 +328,6 @@ func Start(tm ...int) chan Event {
 
 // End removes global event hook
 func End() {
-	asyncon = false
 	C.endPoll()
 	C.stop_event()
 	time.Sleep(time.Millisecond * 10)
@@ -264,13 +337,8 @@ func End() {
 	}
 	close(ev)
 
-	pressed = make(map[uint16]bool, 256)
-	uppressed = make(map[uint16]bool, 256)
-	used = []int{}
-
-	keys = map[int][]uint16{}
-	cbs = map[int]func(Event){}
-	events = map[uint8][]int{}
+	pressed = make(map[Code]bool, 256)
+	registry = make(map[Kind]map[[4]Code]func(Event))
 }
 
 // AddEvent add the block event listener
@@ -287,4 +355,10 @@ func addEvent(key string) int {
 // StopEvent stop the block event listener
 func StopEvent() {
 	C.stop_event()
+}
+
+func hookLog(format string, args ...any) {
+	if debugLevel == Debug {
+		fmt.Printf(format, args...)
+	}
 }
