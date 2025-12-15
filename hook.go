@@ -115,6 +115,19 @@ func allPressed(pressed map[uint16]bool, keys ...uint16) bool {
 	return true
 }
 
+func keyRegistered(evKeyCode uint16, keys ...uint16) bool {
+	// Handle empty keys list case (consider all keys registered)
+	if len(keys) == 0 {
+		return true
+	}
+	for _, k := range keys {
+		if k == evKeyCode {
+			return true
+		}
+	}
+	return false
+}
+
 // Register register gohook event
 func Register(when uint8, cmds []string, cb func(Event)) {
 	key := len(used)
@@ -151,6 +164,9 @@ func Process(evChan <-chan Event) (out chan bool) {
 			for _, v := range events[ev.Kind] {
 				if !asyncon {
 					break
+				}
+				if !keyRegistered(ev.Keycode, keys[v]...) {
+					continue
 				}
 
 				if allPressed(pressed, keys[v]...) {
