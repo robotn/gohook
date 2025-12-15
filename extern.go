@@ -8,6 +8,7 @@ import "C"
 
 import (
 	"log"
+	"runtime"
 	"time"
 
 	"encoding/json"
@@ -25,7 +26,11 @@ func go_send(s *C.char) {
 
 	if out.Keychar != CharUndefined {
 		lck.Lock()
-		raw2key[out.Rawcode] = string([]rune{out.Keychar})
+		if runtime.GOOS == "darwin" {
+			rawToKeyDarwin[out.Rawcode] = string([]rune{out.Keychar})
+		} else {
+			raw2key[out.Rawcode] = string([]rune{out.Keychar})
+		}
 		lck.Unlock()
 	}
 
