@@ -16,13 +16,13 @@ func TestAdd(t *testing.T) {
 }
 
 func TestKey(t *testing.T) {
-	k := RawcodetoKeychar(0)
+	k := RawcodeToKeychar(0)
 	if runtime.GOOS == "darwin" {
 		tt.Equal(t, "a", k)
 	} else {
 		tt.Equal(t, "error", k)
 	}
 
-	r := KeychartoRawcode("error")
+	r := KeycharToRawcode("error")
 	tt.Equal(t, 0, r)
 }

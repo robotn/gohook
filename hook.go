@@ -128,6 +128,16 @@ func keyRegistered(evKeyCode uint16, keys ...uint16) bool {
 	return false
 }
 
+func GetRawCode(key string) uint16 {
+	if runtime.GOOS == "darwin" {
+		return keyToRawDarwin[key]
+	}
+	if runtime.GOOS == "windows" {
+		return key2rawWin[key]
+	}
+	return key2RawLinux[key]
+}
+
 // Register register gohook event
 func Register(when uint8, cmds []string, cb func(Event)) {
 	key := len(used)
@@ -137,9 +147,9 @@ func Register(when uint8, cmds []string, cb func(Event)) {
 
 	for _, v := range cmds {
 		if when == KeyUp {
-			uptmp = append(uptmp, Keycode[v])
+			uptmp = append(uptmp, GetRawCode(v))
 		}
-		tmp = append(tmp, Keycode[v])
+		tmp = append(tmp, GetRawCode(v))
 	}
 
 	keys[key] = tmp
@@ -154,20 +164,22 @@ func Process(evChan <-chan Event) (out chan bool) {
 	out = make(chan bool)
 	go func() {
 		for ev := range evChan {
-			if ev.Kind == KeyDown || ev.Kind == KeyHold {
-				pressed[ev.Keycode] = true
-				uppressed[ev.Keycode] = true
-			} else if ev.Kind == KeyUp {
-				pressed[ev.Keycode] = false
+			switch ev.Kind {
+			case KeyDown, KeyHold:
+				pressed[ev.Rawcode] = true
+				uppressed[ev.Rawcode] = true
+			case KeyUp:
+				pressed[ev.Rawcode] = false
+				// pressed[ev.Keycode] = false
 			}
 
 			for _, v := range events[ev.Kind] {
 				if !asyncon {
 					break
 				}
-				if !keyRegistered(ev.Keycode, keys[v]...) {
-					continue
-				}
+				// if !keyRegistered(ev.Keycode, keys[v]...) {
+				// 	continue
+				// }
 
 				if allPressed(pressed, keys[v]...) {
 					cbs[v](ev)
@@ -196,14 +208,14 @@ func (e Event) String() string {
 	case HookDisabled:
 		return fmt.Sprintf("%v - Event: {Kind: HookDisabled}", e.When)
 	case KeyDown:
-		return fmt.Sprintf("%v - Event: {Kind: KeyDown, Rawcode: %v, Keychar: %v}",
-			e.When, e.Rawcode, e.Keychar)
+		return fmt.Sprintf("%v - Event: {Kind: KeyDown, KeyCode: %v, Rawcode: %v, Keychar: %v}",
+			e.When, e.Keycode, e.Rawcode, e.Keychar)
 	case KeyHold:
-		return fmt.Sprintf("%v - Event: {Kind: KeyHold, Rawcode: %v, Keychar: %v}",
-			e.When, e.Rawcode, e.Keychar)
+		return fmt.Sprintf("%v - Event: {Kind: KeyHold, KeyCode: %v, Rawcode: %v, Keychar: %v}",
+			e.When, e.Keycode, e.Rawcode, e.Keychar)
 	case KeyUp:
-		return fmt.Sprintf("%v - Event: {Kind: KeyUp, Rawcode: %v, Keychar: %v}",
-			e.When, e.Rawcode, e.Keychar)
+		return fmt.Sprintf("%v - Event: {Kind: KeyUp, KeyCode: %v, Rawcode: %v, Keychar: %v}",
+			e.When, e.Keycode, e.Rawcode, e.Keychar)
 	case MouseDown:
 		return fmt.Sprintf("%v - Event: {Kind: MouseDown, Button: %v, X: %v, Y: %v, Clicks: %v}",
 			e.When, e.Button, e.X, e.Y, e.Clicks)
@@ -229,23 +241,29 @@ func (e Event) String() string {
 	return "Unknown event, contact the mantainers."
 }
 
-// RawcodetoKeychar rawcode to keychar
-func RawcodetoKeychar(r uint16) string {
+// RawcodeToKeychar rawcode to keychar
+func RawcodeToKeychar(r uint16) string {
 	lck.RLock()
 	defer lck.RUnlock()
 
 	if runtime.GOOS == "darwin" {
 		return rawToKeyDarwin[r]
 	}
-	return raw2key[r]
+	if runtime.GOOS == "windows" {
+		return raw2keyWin[r]
+	}
+	return raw2keyLinux[r]
 }
 
-// KeychartoRawcode key char to rawcode
-func KeychartoRawcode(kc string) uint16 {
+// KeycharToRawcode key char to rawcode
+func KeycharToRawcode(kc string) uint16 {
 	if runtime.GOOS == "darwin" {
 		return keyToRawDarwin[kc]
 	}
-	return keytoraw[kc]
+	if runtime.GOOS == "windows" {
+		return key2rawWin[kc]
+	}
+	return key2RawLinux[kc]
 }
 
 // Start adds global event hook to OS
