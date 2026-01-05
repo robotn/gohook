@@ -54,13 +54,15 @@ var (
 		50: "`",
 		51: "backspace",
 		53: "escape",
-		54: "apps",   // right cmdnd
+		54: "rcmd",   // right cmdnd, apps
 		55: "lsuper", // left cmdnd
 		56: "shift",
+		60: "rshift",
 		57: "capslock",
 		58: "alt", // left option
 		// 59:  "control",
 		59:  "ctrl",
+		62:  "rctrl",
 		61:  "ralt", // undefined in `keytoraw` map, right option
 		65:  "decimal_point",
 		67:  "multiply",
@@ -160,13 +162,15 @@ var (
 		"`":             50,
 		"backspace":     51,
 		"escape":        53,
-		"apps":          54, // right cmdnd
+		"rcmd":          54, // right cmdnd
 		"lsuper":        55, // left cmdnd
 		"shift":         56,
+		"rshift":        60,
 		"capslock":      57,
 		"alt":           58, // left option
-		"ctrl":          59,
 		"ralt":          61, // undefined in `keytoraw` map, right option
+		"ctrl":          59,
+		"rctrl":         62,
 		"decimal_point": 65,
 		"multiply":      67,
 		"add":           69,
@@ -290,7 +294,7 @@ var (
 		90:  "z",
 		91:  "lsuper",
 		92:  "rsuper",
-		93:  "apps",
+		93:  "rcmd",
 		95:  "sleep",
 		96:  "num0",
 		97:  "num1",
@@ -467,7 +471,7 @@ var (
 		"z":                               90,
 		"lsuper":                          91,
 		"rsuper":                          92,
-		"apps":                            93,
+		"rcmd":                            93,
 		"sleep":                           95,
 		"num0":                            96,
 		"num1":                            97,
@@ -733,7 +737,7 @@ var (
 		"backspace":    8,
 		"capslock":     20,
 		"shift":        16,
-		"shift_right":  16,
+		"rshift":       16,
 		"ctrl":         17,
 		"ctrl_left":    17,
 		"meta":         91,
