@@ -100,6 +100,7 @@ var (
 
 	keys   = map[int][]uint16{}
 	upkeys = map[int][]uint16{}
+
 	cbs    = map[int]func(Event){}
 	events = map[uint8][]int{}
 )
@@ -139,24 +140,73 @@ func GetRawCode(key string) uint16 {
 }
 
 // Register register gohook event
-func Register(when uint8, cmds []string, cb func(Event)) {
+func Register(when uint8, cmds []string, cb func(Event), key1 ...int) int {
+	lck.Lock()
+	defer lck.Unlock()
+
 	key := len(used)
-	used = append(used, key)
+	if len(key1) > 0 {
+		key = key1[0]
+	} else {
+		used = append(used, key)
+	}
+
 	tmp := []uint16{}
 	uptmp := []uint16{}
 
 	for _, v := range cmds {
-		if when == KeyUp {
-			uptmp = append(uptmp, GetRawCode(v))
+		if when == KeyUp || when == MouseUp {
+			uptmp = append(uptmp, GetCode(v))
 		}
-		tmp = append(tmp, GetRawCode(v))
+		tmp = append(tmp, GetCode(v))
 	}
 
 	keys[key] = tmp
 	upkeys[key] = uptmp
-	cbs[key] = cb
-	events[when] = append(events[when], key)
-	// return
+	if len(key1) <= 0 {
+		cbs[key] = cb
+		events[when] = append(events[when], key)
+	}
+	return key
+}
+
+func GetCode(v string) uint16 {
+	m1 := MouseMap[v]
+	if m1 == 0 {
+		if v == "kleft" || v == "kright" {
+			v = v[1:]
+		}
+		m1 = GetRawCode(v)
+	}
+	return m1
+}
+
+// Unregister removes a previously registered gohook event by its key
+func Unregister(when uint8, key int) {
+	lck.Lock()
+	defer lck.Unlock()
+	// Remove from used slice
+	for i, v := range used {
+		if v == key {
+			used = append(used[:i], used[i+1:]...)
+			break
+		}
+	}
+
+	// Remove from keys and upkeys maps
+	delete(keys, key)
+	delete(upkeys, key)
+	// Remove callback
+	delete(cbs, key)
+
+	// Remove from events slice
+	evs := events[when]
+	for i, v := range evs {
+		if v == key {
+			events[when] = append(evs[:i], evs[i+1:]...)
+			break
+		}
+	}
 }
 
 // Process return go hook process
@@ -171,6 +221,11 @@ func Process(evChan <-chan Event) (out chan bool) {
 			case KeyUp:
 				pressed[ev.Rawcode] = false
 				// pressed[ev.Keycode] = false
+			case MouseDown, MouseHold:
+				pressed[ev.Button] = true
+				uppressed[ev.Button] = true
+			case MouseUp:
+				pressed[ev.Button] = false
 			}
 
 			for _, v := range events[ev.Kind] {
@@ -183,7 +238,7 @@ func Process(evChan <-chan Event) (out chan bool) {
 
 				if allPressed(pressed, keys[v]...) {
 					cbs[v](ev)
-				} else if ev.Kind == KeyUp {
+				} else if ev.Kind == KeyUp || ev.Kind == MouseUp {
 					//uppressed[ev.Keycode] = true
 					if allPressed(uppressed, upkeys[v]...) {
 						uppressed = make(map[uint16]bool, 256)
