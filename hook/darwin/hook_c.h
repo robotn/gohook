@@ -564,13 +564,15 @@ static inline void process_modifier_changed(uint64_t timestamp, CGEventRef event
 	} else if (keycode == kVK_CapsLock) {
 		if (current_modifiers & MASK_CAPS_LOCK) {
 			// Process as a key pressed event.
+			// Caps Lock is ON, turning OFF.
 			unset_modifier_mask(MASK_CAPS_LOCK);
-			process_key_released(timestamp, event_ref);
 		} else {
 			// Process as a key released event.
 			set_modifier_mask(MASK_CAPS_LOCK);
-			process_key_pressed(timestamp, event_ref);
 		}
+		// Always fire both pressed and released events for each Caps Lock press.
+		process_key_pressed(timestamp, event_ref);
+		process_key_released(timestamp, event_ref);
 	}
 }
 
