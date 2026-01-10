@@ -58,8 +58,8 @@ var (
 		55: "cmd",  // left cmdnd
 		56: "shift",
 		60: "shiftr",
-		57: "capslock",
-		58: "alt", // left option
+		57: "caps", // caps and lock
+		58: "alt",  // left option
 		// 59:  "control",
 		59:  "ctrl",
 		62:  "ctrlr",
@@ -166,7 +166,7 @@ var (
 		"cmd":           55, // left cmdnd, cmd
 		"shift":         56,
 		"shiftr":        60,
-		"capslock":      57,
+		"caps":          57,
 		"alt":           58, // left option
 		"altr":          61, // undefined in `keytoraw` map, right option
 		"ctrl":          59,
@@ -228,7 +228,7 @@ var (
 		17:  "ctrl",
 		18:  "alt",
 		19:  "pause", // break
-		20:  "capslock",
+		20:  "caps",
 		21:  "hangul",
 		25:  "hanja",
 		27:  "esc", // "`"
@@ -405,7 +405,7 @@ var (
 		"ctrl":                    17,
 		"alt":                     18,
 		"pause/break":             19,
-		"capslock":                20,
+		"caps":                    20,
 		"hangul":                  21,
 		"hanja":                   25,
 		"esc":                     27,
@@ -638,7 +638,7 @@ var (
 		91:  "cmd",
 		92:  "cmdr",
 		19:  "pause",
-		20:  "capslock",
+		20:  "caps",
 		27:  "esc",
 		32:  "space",
 		33:  "pageup",
@@ -735,7 +735,7 @@ var (
 		"slash":        191,
 		"question":     191,
 		"backspace":    8,
-		"capslock":     20,
+		"caps":         20,
 		"shift":        16,
 		"shiftr":       16,
 		"ctrl":         17,
