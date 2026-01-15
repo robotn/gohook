@@ -14,7 +14,7 @@ package hook
 #cgo darwin CFLAGS: -x objective-c -Wno-deprecated-declarations
 #cgo darwin LDFLAGS: -framework Cocoa
 
-#cgo linux CFLAGS:-I/usr/src -std=gnu99
+#cgo linux CFLAGS: -I/usr/src -std=gnu99
 #cgo linux LDFLAGS: -L/usr/src -lX11 -lXtst
 #cgo linux LDFLAGS: -lX11-xcb -lxcb -lxcb-xkb -lxkbcommon -lxkbcommon-x11
 //#cgo windows LDFLAGS: -lgdi32 -luser32
@@ -129,14 +129,22 @@ func keyRegistered(evKeyCode uint16, keys ...uint16) bool {
 	return false
 }
 
-func GetRawCode(key string) uint16 {
+func GetRawCode(key string) (v uint16) {
+	ok := true
 	if runtime.GOOS == "darwin" {
-		return keyToRawDarwin[key]
+		v, ok = keyToRawDarwin[key]
 	}
 	if runtime.GOOS == "windows" {
-		return key2rawWin[key]
+		v, ok = key2rawWin[key]
 	}
-	return key2RawLinux[key]
+	if runtime.GOOS == "linux" {
+		v, ok = key2RawLinux[key]
+	}
+
+	if !ok {
+		v = 9999
+	}
+	return
 }
 
 // Register register gohook event
@@ -155,10 +163,13 @@ func Register(when uint8, cmds []string, cb func(Event), key1 ...int) int {
 	uptmp := []uint16{}
 
 	for _, v := range cmds {
-		if when == KeyUp || when == MouseUp {
-			uptmp = append(uptmp, GetCode(v))
+		c1 := GetCode(v)
+		if c1 != 9999 {
+			if when == KeyUp || when == MouseUp {
+				uptmp = append(uptmp, c1)
+			}
+			tmp = append(tmp, c1)
 		}
-		tmp = append(tmp, GetCode(v))
 	}
 
 	keys[key] = tmp
@@ -171,8 +182,8 @@ func Register(when uint8, cmds []string, cb func(Event), key1 ...int) int {
 }
 
 func GetCode(v string) uint16 {
-	m1 := MouseMap[v]
-	if m1 == 0 {
+	m1, ok := MouseMap[v]
+	if m1 == 0 || !ok {
 		if v == "kleft" || v == "kright" {
 			v = v[1:]
 		}
@@ -207,6 +218,17 @@ func Unregister(when uint8, key int) {
 			break
 		}
 	}
+}
+
+// UnregisterAll unregister the All keys and events
+func UnregisterAll() bool {
+	lck.Lock()
+	defer lck.Unlock()
+
+	keys = nil
+	upkeys = nil
+	cbs = nil
+	return true
 }
 
 // Process return go hook process
