@@ -116,17 +116,17 @@ func allPressed(pressed map[uint16]bool, keys ...uint16) bool {
 	return true
 }
 
-func keyRegistered(evKeyCode uint16, keys ...uint16) bool {
+func keyRegistered(evKeyCode uint16, keys []uint16) bool {
 	// Handle empty keys list case (consider all keys registered)
 	if len(keys) == 0 {
 		return true
 	}
-	for _, k := range keys {
-		if k == evKeyCode {
-			return true
+	for i := 0; i < len(keys); i++ {
+		if keys[i] != evKeyCode {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func GetRawCode(key string) (v uint16) {
@@ -149,6 +149,14 @@ func GetRawCode(key string) (v uint16) {
 
 // Register register gohook event
 func Register(when uint8, cmds []string, cb func(Event), key1 ...int) int {
+	if len(cmds) <= 0 {
+		key := -1
+		if len(key1) > 0 {
+			key = key1[0]
+		}
+		return key
+	}
+
 	lck.Lock()
 	defer lck.Unlock()
 
@@ -174,7 +182,9 @@ func Register(when uint8, cmds []string, cb func(Event), key1 ...int) int {
 
 	if len(tmp) > 0 {
 		keys[key] = tmp
-		upkeys[key] = uptmp
+		if len(uptmp) > 0 {
+			upkeys[key] = uptmp
+		}
 		if len(key1) <= 0 {
 			cbs[key] = cb
 			events[when] = append(events[when], key)
@@ -256,9 +266,9 @@ func Process(evChan <-chan Event) (out chan bool) {
 				if !asyncon {
 					break
 				}
-				// if !keyRegistered(ev.Keycode, keys[v]...) {
-				// 	continue
-				// }
+				if keyRegistered(ev.Keycode, keys[v]) {
+					continue
+				}
 
 				if allPressed(pressed, keys[v]...) {
 					cbs[v](ev)
