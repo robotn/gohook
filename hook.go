@@ -172,11 +172,13 @@ func Register(when uint8, cmds []string, cb func(Event), key1 ...int) int {
 		}
 	}
 
-	keys[key] = tmp
-	upkeys[key] = uptmp
-	if len(key1) <= 0 && len(tmp) > 0 {
-		cbs[key] = cb
-		events[when] = append(events[when], key)
+	if len(tmp) > 0 {
+		keys[key] = tmp
+		upkeys[key] = uptmp
+		if len(key1) <= 0 {
+			cbs[key] = cb
+			events[when] = append(events[when], key)
+		}
 	}
 	return key
 }
