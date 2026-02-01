@@ -194,6 +194,9 @@ func Register(when uint8, cmds []string, cb func(Event), key1 ...int) int {
 }
 
 func GetCode(v string) uint16 {
+	if v == "" {
+		return 9999
+	}
 	m1, ok := MouseMap[v]
 	if m1 == 0 || !ok {
 		if v == "kleft" || v == "kright" {
