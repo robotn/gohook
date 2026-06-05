@@ -1,3 +1,6 @@
+//go:build !wayland
+// +build !wayland
+
 package hook
 
 /*
@@ -26,19 +29,19 @@ func go_send(s *C.char) {
 
 	if out.Keychar != CharUndefined {
 		lck.Lock()
-		if runtime.GOOS == "darwin" {
+		switch runtime.GOOS {
+		case "darwin":
 			rawToKeyDarwin[out.Rawcode] = string([]rune{out.Keychar})
-		} else {
-			raw2key[out.Rawcode] = string([]rune{out.Keychar})
+		case "windows":
+			raw2keyWin[out.Rawcode] = string([]rune{out.Keychar})
+		default:
+			raw2keyLinux[out.Rawcode] = string([]rune{out.Keychar})
 		}
 		lck.Unlock()
 	}
 
 	// todo bury this deep into the C lib so that the time is correct
 	out.When = time.Now() // at least it's consistent
-	if err != nil {
-		log.Fatal("json.Unmarshal error is: ", err)
-	}
 
 	// todo: maybe make non-bloking
 	ev <- out
