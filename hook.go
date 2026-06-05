@@ -324,24 +324,26 @@ func RawcodeToKeychar(r uint16) string {
 	lck.RLock()
 	defer lck.RUnlock()
 
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		return rawToKeyDarwin[r]
-	}
-	if runtime.GOOS == "windows" {
+	case "windows":
 		return raw2keyWin[r]
+	default:
+		return raw2keyLinux[r]
 	}
-	return raw2keyLinux[r]
 }
 
 // KeycharToRawcode key char to rawcode
 func KeycharToRawcode(kc string) uint16 {
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		return keyToRawDarwin[kc]
-	}
-	if runtime.GOOS == "windows" {
+	case "windows":
 		return key2rawWin[kc]
+	default:
+		return key2RawLinux[kc]
 	}
-	return key2RawLinux[kc]
 }
 
 // resetState clears all package-level hook state. Shared by every backend's

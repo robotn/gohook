@@ -1,7 +1,9 @@
+//go:build !wayland
+// +build !wayland
+
 package hook
 
 /*
-
 // #include "event/hook_async.h"
 */
 import "C"
