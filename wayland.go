@@ -441,7 +441,7 @@ var waylandKeyName = map[uint32]string{
 	51: ",",
 	52: ".",
 	53: "/",
-	54: "rshift", // KEY_RIGHTSHIFT
+	54: "shiftr", // KEY_RIGHTSHIFT
 	55: "num_asterisk",
 	56: "alt", // KEY_LEFTALT
 	57: "space",
@@ -477,7 +477,7 @@ var waylandKeyName = map[uint32]string{
 	97: "ctrl", // KEY_RIGHTCTRL
 	98: "num_slash",
 
-	100: "ralt", // KEY_RIGHTALT
+	100: "altr", // KEY_RIGHTALT
 	102: "home",
 	103: "up",
 	104: "pageup",
@@ -491,5 +491,5 @@ var waylandKeyName = map[uint32]string{
 	119: "pause",
 
 	125: "cmd",  // KEY_LEFTMETA  (super/win)
-	126: "rcmd", // KEY_RIGHTMETA
+	126: "cmdr", // KEY_RIGHTMETA
 }
