@@ -10,25 +10,11 @@
 
 package hook
 
-/*
-#cgo darwin CFLAGS: -x objective-c -Wno-deprecated-declarations
-#cgo darwin LDFLAGS: -framework Cocoa
-
-#cgo linux CFLAGS: -I/usr/src -std=gnu99
-#cgo linux LDFLAGS: -L/usr/src -lX11 -lXtst
-#cgo linux LDFLAGS: -lX11-xcb -lxcb -lxcb-xkb -lxkbcommon -lxkbcommon-x11
-//#cgo windows LDFLAGS: -lgdi32 -luser32
-
-#include "event/goEvent.h"
-*/
-import "C"
-
 import (
 	"fmt"
 	"runtime"
 	"sync"
 	"time"
-	"unsafe"
 )
 
 const (
@@ -358,50 +344,9 @@ func KeycharToRawcode(kc string) uint16 {
 	return key2RawLinux[kc]
 }
 
-// Start adds global event hook to OS
-// returns event channel
-func Start(tm ...int) chan Event {
-	ev = make(chan Event, 1024)
-	go C.start_ev()
-
-	tm1 := 50
-	if len(tm) > 0 {
-		tm1 = tm[0]
-	}
-
-	asyncon = true
-	go func() {
-		for {
-			if !asyncon {
-				return
-			}
-
-			C.pollEv()
-			time.Sleep(time.Millisecond * time.Duration(tm1))
-			//todo: find smallest time that does not destroy the cpu utilization
-		}
-	}()
-
-	return ev
-}
-
-// End removes global event hook
-func End(tm ...int) {
-	tm1 := 10
-	if len(tm) > 0 {
-		tm1 = tm[0]
-	}
-
-	asyncon = false
-	C.endPoll()
-	C.stop_event()
-	time.Sleep(time.Millisecond * time.Duration(tm1))
-
-	for len(ev) != 0 {
-		<-ev
-	}
-	close(ev)
-
+// resetState clears all package-level hook state. Shared by every backend's
+// End() implementation (cgo and Wayland).
+func resetState() {
 	pressed = make(map[uint16]bool, 256)
 	uppressed = make(map[uint16]bool, 256)
 	used = []int{}
@@ -409,20 +354,4 @@ func End(tm ...int) {
 	keys = map[int][]uint16{}
 	cbs = map[int]func(Event){}
 	events = map[uint8][]int{}
-}
-
-// AddEvent add the block event listener
-func addEvent(key string) int {
-	cs := C.CString(key)
-	defer C.free(unsafe.Pointer(cs))
-
-	eve := C.add_event(cs)
-	geve := int(eve)
-
-	return geve
-}
-
-// StopEvent stop the block event listener
-func StopEvent() {
-	C.stop_event()
 }
