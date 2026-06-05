@@ -64,11 +64,16 @@ func Start(tm ...int) chan Event {
 }
 
 // End removes global event hook
-func End() {
+func End(tm ...int) {
+	tm1 := 10
+	if len(tm) > 0 {
+		tm1 = tm[0]
+	}
+
 	asyncon = false
 	C.endPoll()
 	C.stop_event()
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * time.Duration(tm1))
 
 	for len(ev) != 0 {
 		<-ev

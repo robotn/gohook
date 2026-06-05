@@ -17,10 +17,13 @@ func TestAdd(t *testing.T) {
 
 func TestKey(t *testing.T) {
 	k := RawcodetoKeychar(0)
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		tt.Equal(t, "a", k)
-	} else {
+	case "windows":
 		tt.Equal(t, "error", k)
+	default: // linux: raw2keyLinux has no entry for rawcode 0
+		tt.Equal(t, "", k)
 	}
 
 	r := KeychartoRawcode("error")
