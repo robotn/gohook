@@ -1,7 +1,7 @@
 github.com/vcaesar/go-wayland v0.40.0 h1:DU55bzHtGaktBud6bdvIJk4g0TJAhqs+7uaKelmzekI=
 github.com/vcaesar/go-wayland v0.40.0/go.mod h1:U0zLXEpcV69BpsYGnQnypQ5DZNY4OP+6YYuu0FROoE4=
-github.com/vcaesar/keycode v0.10.1 h1:0DesGmMAPWpYTCYddOFiCMKCDKgNnwiQa2QXindVUHw=
-github.com/vcaesar/keycode v0.10.1/go.mod h1:JNlY7xbKsh+LAGfY2j4M3znVrGEm5W1R8s/Uv6BJcfQ=
+github.com/vcaesar/keycode v0.20.0 h1:rad6LotibCYlwnWUSna+5JTTaiVlfiQMELfVw5wod+w=
+github.com/vcaesar/keycode v0.20.0/go.mod h1:JNlY7xbKsh+LAGfY2j4M3znVrGEm5W1R8s/Uv6BJcfQ=
 github.com/vcaesar/tt v0.20.1 h1:D/jUeeVCNbq3ad8M7hhtB3J9x5RZ6I1n1eZ0BJp7M+4=
 github.com/vcaesar/tt v0.20.1/go.mod h1:cH2+AwGAJm19Wa6xvEa+0r+sXDJBT0QgNQey6mwqLeU=
 golang.org/x/sys v0.45.0 h1:dO4czNzziLiiXplLQgBCEpCvXQ3dnkn0SdaZSYdQ+FY=
