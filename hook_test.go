@@ -16,7 +16,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestKey(t *testing.T) {
-	k := RawcodetoKeychar(0)
+	k := RawcodeToKeychar(0)
 	switch runtime.GOOS {
 	case "darwin":
 		tt.Equal(t, "a", k)
@@ -26,6 +26,6 @@ func TestKey(t *testing.T) {
 		tt.Equal(t, "", k)
 	}
 
-	r := KeychartoRawcode("error")
+	r := KeycharToRawcode("error")
 	tt.Equal(t, 0, r)
 }

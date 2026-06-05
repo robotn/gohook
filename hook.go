@@ -216,8 +216,8 @@ func (e Event) String() string {
 	return "Unknown event, contact the mantainers."
 }
 
-// RawcodetoKeychar rawcode to keychar
-func RawcodetoKeychar(r uint16) string {
+// RawcodeToKeychar rawcode to keychar
+func RawcodeToKeychar(r uint16) string {
 	lck.RLock()
 	defer lck.RUnlock()
 
@@ -231,8 +231,8 @@ func RawcodetoKeychar(r uint16) string {
 	}
 }
 
-// KeychartoRawcode key char to rawcode
-func KeychartoRawcode(kc string) uint16 {
+// KeycharToRawcode key char to rawcode
+func KeycharToRawcode(kc string) uint16 {
 	switch runtime.GOOS {
 	case "darwin":
 		return keyToRawDarwin[kc]
