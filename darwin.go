@@ -213,12 +213,14 @@ func initDarwin() error {
 
 		// kCFRunLoopCommonModes is an exported CFStringRef variable; the symbol
 		// address points at the pointer, so dereference once to get the value.
+		// The double indirection through &sym keeps `go vet` (unsafeptr) happy:
+		// sym is a dlsym'd C address, never a Go pointer.
 		sym, err := purego.Dlsym(cf, "kCFRunLoopCommonModes")
 		if err != nil {
 			darwinInitErr = err
 			return
 		}
-		kCFRunLoopCommonModes = *(*uintptr)(unsafe.Pointer(sym))
+		kCFRunLoopCommonModes = **(**uintptr)(unsafe.Pointer(&sym))
 
 		cgCallbackPtr = purego.NewCallback(eventCallback)
 	})
