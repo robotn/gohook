@@ -355,8 +355,14 @@ func x11OnKey(st *x11State, buf []byte, press bool) {
 		evdev = uint16(xkc) - evdevOffset
 	}
 
+	// CGo backend parity (hook/x11/hook_c.h): Rawcode carries the X keysym
+	// resolved under the event's modifier state, while Keycode carries the
+	// evdev code that Register()/Keycode matching relies on. This keeps
+	// KeycharToRawcode()/RawcodeToKeychar() consistent across both backends.
+	ks := st.keysymFor(xkc, ke.State)
+
 	e := Event{
-		Rawcode: evdev,
+		Rawcode: uint16(ks),
 		Keycode: evdev,
 		Keychar: CharUndefined,
 		Mask:    maskFromState(ke.State),
@@ -378,12 +384,13 @@ func x11OnKey(st *x11State, buf []byte, press bool) {
 		lck.Unlock()
 	}
 
-	if r := st.keychar(xkc, ke.State); r != CharUndefined {
+	if r := keysymToRune(ks); r != CharUndefined {
 		e.Keychar = r
 		if press {
-			// Keep RawcodeToKeychar() in sync, mirroring the CGo backend.
+			// Keep RawcodeToKeychar() in sync, mirroring the CGo backend
+			// (extern.go go_send keys the map by the keysym rawcode).
 			lck.Lock()
-			raw2keyLinux[evdev] = string([]rune{r})
+			raw2keyLinux[e.Rawcode] = string([]rune{r})
 			lck.Unlock()
 		}
 	}
@@ -465,9 +472,10 @@ func x11Wheel(btn byte, x, y int16, mask uint16) Event {
 	return e
 }
 
-// keychar resolves the printable rune for an X keycode under the given
-// modifier state, or CharUndefined when the key has no character.
-func (st *x11State) keychar(xkc byte, state uint16) rune {
+// keysymFor resolves the keysym for an X keycode under the given modifier
+// state (shifted column when Shift is held, with fallback to the unshifted
+// column), or 0 (NoSymbol) when the keymap is unavailable.
+func (st *x11State) keysymFor(xkc byte, state uint16) xproto.Keysym {
 	col := 0
 	if state&xShiftMask != 0 {
 		col = 1
@@ -478,7 +486,13 @@ func (st *x11State) keychar(xkc byte, state uint16) rune {
 		ks = st.keysymAt(xkc, 0)
 	}
 
-	return keysymToRune(ks)
+	return ks
+}
+
+// keychar resolves the printable rune for an X keycode under the given
+// modifier state, or CharUndefined when the key has no character.
+func (st *x11State) keychar(xkc byte, state uint16) rune {
+	return keysymToRune(st.keysymFor(xkc, state))
 }
 
 // keysymAt returns the keysym for an X keycode at the given column (0 =
@@ -669,14 +683,20 @@ func x11Handshake(conn net.Conn, host, dispNum string) error {
 		return err
 	}
 
-	if code == 0 { // Failed
+	// Setup status: 0 = Failed, 1 = Success, 2 = Authenticate (the server
+	// wants an additional negotiation this client does not implement) —
+	// anything but Success leaves the connection unusable.
+	switch code {
+	case 1:
+		return nil
+	case 2:
+		return errors.New("hook: X server requires further authentication")
+	default: // 0: Failed
 		if reasonLen > len(body) {
 			reasonLen = len(body)
 		}
 		return errors.New("hook: X authentication refused: " + string(body[:reasonLen]))
 	}
-
-	return nil
 }
 
 // x11Auth reads $XAUTHORITY and returns the MIT-MAGIC-COOKIE-1 entry matching

@@ -406,8 +406,7 @@ func mouseProc(nCode int, wParam uintptr, ms *msLLHookStruct) uintptr {
 			winModifiers |= maskButton3
 			processButtonPressed(ms, MouseMap["center"])
 		case wmXButtonDown:
-			btn := xButton(ms)
-			processButtonPressed(ms, btn)
+			processButtonPressed(ms, xButton(ms, true))
 		case wmLButtonUp:
 			winModifiers &^= maskButton1
 			processButtonReleased(ms, MouseMap["left"])
@@ -418,8 +417,7 @@ func mouseProc(nCode int, wParam uintptr, ms *msLLHookStruct) uintptr {
 			winModifiers &^= maskButton3
 			processButtonReleased(ms, MouseMap["center"])
 		case wmXButtonUp:
-			btn := xButton(ms)
-			processButtonReleased(ms, btn)
+			processButtonReleased(ms, xButton(ms, false))
 		case wmMouseMove:
 			processMouseMoved(ms)
 		case wmMouseWheel:
@@ -434,18 +432,25 @@ func mouseProc(nCode int, wParam uintptr, ms *msLLHookStruct) uintptr {
 }
 
 // xButton resolves an X (extra) mouse button to its gohook button number and
-// updates the button modifier mask.
-func xButton(ms *msLLHookStruct) uint16 {
+// sets (press) or clears (release) the matching button modifier bit, so the
+// mask does not stay stuck after XButtonUp.
+func xButton(ms *msLLHookStruct, down bool) uint16 {
+	var btn, bit uint16
 	switch uint16(ms.mouseData >> 16) {
 	case xbutton1:
-		winModifiers |= maskButton4
-		return 4
+		btn, bit = 4, maskButton4
 	case xbutton2:
-		winModifiers |= maskButton5
-		return 5
+		btn, bit = 5, maskButton5
 	default:
 		return uint16(ms.mouseData >> 16)
 	}
+
+	if down {
+		winModifiers |= bit
+	} else {
+		winModifiers &^= bit
+	}
+	return btn
 }
 
 func processButtonPressed(ms *msLLHookStruct, button uint16) {

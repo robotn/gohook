@@ -97,6 +97,12 @@ func TestKeysymAt(t *testing.T) {
 	// keychar picks the shifted column when Shift is set.
 	tt.Equal(t, 'a', st.keychar(8, 0))
 	tt.Equal(t, 'A', st.keychar(8, xShiftMask))
+
+	// keysymFor is what fills Event.Rawcode (CGo backend parity: rawcode is
+	// the state-resolved keysym, not the evdev code).
+	tt.Equal(t, xproto.Keysym(0x61), st.keysymFor(8, 0))
+	tt.Equal(t, xproto.Keysym(0x41), st.keysymFor(8, xShiftMask))
+	tt.Equal(t, xproto.Keysym(0), st.keysymFor(200, 0))
 }
 
 // TestX11Dial verifies DISPLAY parsing for the common local and TCP forms.

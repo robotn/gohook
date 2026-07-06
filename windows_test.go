@@ -70,17 +70,26 @@ func TestWinModifierMask(t *testing.T) {
 	winModifiers = 0
 }
 
-// TestWinXButton checks extra-mouse-button decoding from MSLLHOOKSTRUCT.mouseData.
+// TestWinXButton checks extra-mouse-button decoding from MSLLHOOKSTRUCT.mouseData
+// and that the button mask bits are set on press and cleared on release.
 func TestWinXButton(t *testing.T) {
 	winModifiers = 0
 
 	ms1 := &msLLHookStruct{mouseData: uint32(xbutton1) << 16}
-	tt.Equal(t, uint16(4), xButton(ms1))
+	tt.Equal(t, uint16(4), xButton(ms1, true))
 	tt.Equal(t, true, winModifiers&maskButton4 != 0)
 
 	ms2 := &msLLHookStruct{mouseData: uint32(xbutton2) << 16}
-	tt.Equal(t, uint16(5), xButton(ms2))
+	tt.Equal(t, uint16(5), xButton(ms2, true))
 	tt.Equal(t, true, winModifiers&maskButton5 != 0)
+
+	// Release clears the bits again, so MouseMove is not stuck as MouseDrag.
+	tt.Equal(t, uint16(4), xButton(ms1, false))
+	tt.Equal(t, false, winModifiers&maskButton4 != 0)
+
+	tt.Equal(t, uint16(5), xButton(ms2, false))
+	tt.Equal(t, false, winModifiers&maskButton5 != 0)
+	tt.Equal(t, uint16(0), winModifiers&maskButtons)
 
 	winModifiers = 0
 }
