@@ -1,8 +1,9 @@
 name: Go
-on: [push]
+on: [push, pull_request]
 jobs:
+  # Default CGo/libuiohook backend. ubuntu is excluded because it needs the
+  # X11 dev libs (libx11-dev xorg-dev libxtst-dev libxkbcommon-dev libxcb*).
   test:
-    # name: build
     strategy:
       matrix:
         # go: [1.12.x, 1.13.x]
@@ -10,20 +11,57 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Set up Go 1.26.0
-        uses: actions/setup-go@v6
-        with:
-          go-version: 1.26.0
-        id: go
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v6
 
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.x
+        id: go
+
       - name: Get dependencies
-        run: |
-          go get -v -t -d ./...
+        run: go mod download
 
       - name: Build
         run: go build -v .
       - name: Test
         run: go test -v .
+
+  # Pure-Go backends (build tag "purego"): Quartz event tap on macOS,
+  # WH_*_LL hooks on Windows, X RECORD on Linux. No C toolchain required,
+  # so CGO_ENABLED=0 and ubuntu needs no X11 dev libs.
+  purego:
+    strategy:
+      matrix:
+        os: [macOS-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: 0
+
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.x
+        id: go
+
+      - name: Get dependencies
+        run: go mod download
+
+      - name: Build (purego)
+        run: go build -v -tags purego .
+      - name: Vet (purego)
+        run: go vet -tags purego .
+      - name: Test (purego)
+        run: go test -v -tags purego .
+
+      - name: Build (wayland)
+        if: matrix.os == 'ubuntu-latest'
+        run: go build -v -tags wayland .
+      - name: Vet (wayland)
+        if: matrix.os == 'ubuntu-latest'
+        run: go vet -tags wayland .
