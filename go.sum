@@ -1,3 +1,7 @@
+github.com/ebitengine/purego v0.10.1 h1:dewVBCBT2GaMu1SrNTYxQhgQBethzfhiwvZiLGP/qyY=
+github.com/ebitengine/purego v0.10.1/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
+github.com/jezek/xgb v1.3.1 h1:NQCAEfQyzN+3RjWUSHBuVIxQcy2YfG3/mNvKfs/0rEg=
+github.com/jezek/xgb v1.3.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
 github.com/vcaesar/go-wayland v0.40.0 h1:DU55bzHtGaktBud6bdvIJk4g0TJAhqs+7uaKelmzekI=
 github.com/vcaesar/go-wayland v0.40.0/go.mod h1:U0zLXEpcV69BpsYGnQnypQ5DZNY4OP+6YYuu0FROoE4=
 github.com/vcaesar/keycode v0.20.0 h1:rad6LotibCYlwnWUSna+5JTTaiVlfiQMELfVw5wod+w=

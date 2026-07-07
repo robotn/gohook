@@ -8,13 +8,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//go:build !wayland
-// +build !wayland
+//go:build !wayland && !(darwin && purego) && !(windows && purego) && !(linux && purego)
 
 // Package hook (cgo backend). This is the default backend, a thin wrapper
 // around the native libuiohook C engine (X11 on Linux, Cocoa on macOS,
-// Win32 on Windows). Build with the "wayland" tag to use the pure-Go
-// Wayland backend instead (see wayland.go).
+// Win32 on Windows). Build with the "purego" tag to use the CGo-free
+// backends instead: Quartz event tap on macOS (darwin.go), Win32 low-level
+// hooks on Windows (windows.go), X RECORD on Linux (x11.go). Build with
+// the "wayland" tag on Linux for the focused-surface Wayland backend
+// (wayland.go).
 
 package hook
 

@@ -1,5 +1,4 @@
-//go:build !wayland
-// +build !wayland
+//go:build !wayland && !(darwin && purego) && !(windows && purego) && !(linux && purego)
 
 package hook
 

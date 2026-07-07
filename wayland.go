@@ -99,8 +99,15 @@ func Start(tm ...int) chan Event {
 	return ev
 }
 
-// End removes the Wayland input listener and resets all hook state.
-func End() {
+// End removes the Wayland input listener and resets all hook state. The
+// optional timeout is the grace period (ms) to let the dispatch loop drain
+// before the channel closes (API parity with the other backends).
+func End(tm ...int) {
+	tm1 := 10
+	if len(tm) > 0 {
+		tm1 = tm[0]
+	}
+
 	asyncon = false
 
 	lck.Lock()
@@ -118,7 +125,7 @@ func End() {
 		}
 	}
 
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * time.Duration(tm1))
 
 	for len(ev) != 0 {
 		<-ev
