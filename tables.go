@@ -54,25 +54,25 @@ var (
 		50: "`",
 		51: "backspace",
 		53: "esc",
-		54: "cmdr",
-		55: "cmd",
+		54: "cmdr", // right cmdnd, apps
+		55: "cmd",  // left cmdnd
 		56: "shift",
 		60: "shiftr",
-		57: "caps",
-		58: "alt",
+		57: "caps", // caps and lock
+		58: "alt",  // left option
 		// 59:  "control",
 		59:  "ctrl",
 		62:  "ctrlr",
-		61:  "altr",
+		61:  "altr", // undefined in `keytoraw` map, right option
 		65:  "decimal_point",
 		67:  "multiply",
 		69:  "add",
 		71:  "clear",
 		75:  "divide",
-		76:  "num_enter",
+		76:  "num_enter", // undefined in `keytoraw` map
 		78:  "subtract",
-		79:  "f18",
-		80:  "f19",
+		79:  "f18", // kVK_F18
+		80:  "f19", // kVK_F19
 		82:  "num0",
 		83:  "num1",
 		84:  "num2",
@@ -108,7 +108,7 @@ var (
 		124: "right",
 		125: "down",
 		126: "up",
-		179: "fn",
+		179: "fn", // undefined in `keytoraw` map
 	}
 
 	keyToRawDarwin = map[string]uint16{
@@ -164,13 +164,13 @@ var (
 		"`":             50,
 		"backspace":     51,
 		"esc":           53,
-		"cmdr":          54,
-		"cmd":           55,
+		"cmdr":          54, // right cmdnd
+		"cmd":           55, // left cmdnd, cmd
 		"shift":         56,
 		"shiftr":        60,
 		"caps":          57,
-		"alt":           58,
-		"altr":          61,
+		"alt":           58, // left option
+		"altr":          61, // undefined in `keytoraw` map, right option
 		"ctrl":          59,
 		"ctrlr":         62,
 		"decimal_point": 65,
@@ -178,10 +178,10 @@ var (
 		"add":           69,
 		"clear":         71,
 		"divide":        75,
-		"num_enter":     76,
+		"num_enter":     76, // undefined in `keytoraw` map
 		"subtract":      78,
-		"f18":           79,
-		"f19":           80,
+		"f18":           79, // kVK_F18
+		"f19":           80, // kVK_F19
 		"num0":          82,
 		"num1":          83,
 		"num2":          84,
@@ -217,10 +217,11 @@ var (
 		"right":         124,
 		"down":          125,
 		"up":            126,
-		"fn":            179,
+		"fn":            179, // undefined in `keytoraw` map
 	}
 
 	raw2keyWin = map[uint16]string{
+		// https://github.com/wesbos/keycodes
 		0:  "error",
 		3:  "break",
 		8:  "backspace",
@@ -232,7 +233,7 @@ var (
 		17: "ctrl1",
 		18: "alt1",
 		//
-		19:  "pause",
+		19:  "pause", // break
 		20:  "caps",
 		21:  "hangul",
 		25:  "hanja",
@@ -244,7 +245,7 @@ var (
 		34:  "pagedown",
 		35:  "end",
 		36:  "home",
-		37:  "left",
+		37:  "left", // left_arrow
 		38:  "up",
 		39:  "right",
 		40:  "down",
@@ -341,7 +342,7 @@ var (
 		133: "f22",
 		134: "f23",
 		135: "f24",
-		// fn
+		// 179:   "fn",
 		144:   "numlock",
 		145:   "scroll_lock",
 		160:   "shift",
@@ -429,7 +430,7 @@ var (
 		"pagedown":                34,
 		"end":                     35,
 		"home":                    36,
-		"left":                    37,
+		"left":                    37, // left_arrow
 		"up":                      38,
 		"right":                   39,
 		"down":                    40,
@@ -482,8 +483,8 @@ var (
 		"x":                       88,
 		"y":                       89,
 		"z":                       90,
-		"cmd":                     91,
-		"cmdr":                    92,
+		"cmd":                     91, // lsuper
+		"cmdr":                    92, // superr
 		"superr":                  93,
 		"sleep":                   95,
 		"num0":                    96,
@@ -542,7 +543,7 @@ var (
 		"next":                    176,
 		"previous":                177,
 		"stop":                    178,
-		"play":                    179,
+		"play":                    179, // /pause
 		"email":                   180,
 		"mute_firefox":            181,
 		"decrease_volume_firefox": 182,
@@ -617,8 +618,8 @@ var (
 		189: "-",
 		61:  "equal",
 		187: "=",
-		192: "`",
-		96:  "num0",
+		192: "`",    // backquote
+		96:  "num0", // num_0
 		97:  "num1",
 		98:  "num2",
 		99:  "num3",
@@ -652,7 +653,7 @@ var (
 		34:  "pagedown",
 		35:  "end",
 		36:  "home",
-		37:  "left",
+		37:  "left", // left_arrow
 		38:  "up",
 		39:  "right",
 		40:  "down",
@@ -779,8 +780,8 @@ var (
 		"fn_f10":       121,
 		"fn_f12":       123,
 		"printscreen":  44,
-		"scrolllock":   135, // Fn + F7
-		"pause":        19,  // Fn + F6
+		"scrolllock":   135, // Duplicate with Fn + F7
+		"pause":        19,  // Duplicate with Fn + F6
 		"insert":       45,
 		"delete":       46,
 		"home":         36,
@@ -789,7 +790,7 @@ var (
 		"pagedown":     34,
 		"up":           38,
 		"down":         40,
-		"left":         37,
+		"left":         37, // left_arrow
 		"right":        39,
 		"numlock":      144,
 		"num_divide":   111,
