@@ -305,23 +305,29 @@ func winLoop() {
 		return
 	}
 
+	// Publish the state and re-check asyncon under the same lock End() uses,
+	// so an End() that ran before this point is not missed (otherwise the LL
+	// hooks would stay installed on a thread nobody ever posts WM_QUIT to).
 	lck.Lock()
 	win = &winState{keyboardHook: kbHook, mouseHook: msHook, threadID: uint32(tid)}
+	live := asyncon
 	lck.Unlock()
 
 	// Reset the per-session modifier/click bookkeeping.
 	winModifiers = 0
 	clickCount, clickTime, clickButton = 0, 0, 0
 
-	send(Event{Kind: HookEnabled})
+	if live {
+		send(Event{Kind: HookEnabled})
 
-	// Windows has no native "hook start" callback; the loop blocks here until
-	// WM_QUIT (posted by End()) or an error.
-	var m msg
-	for asyncon {
-		ret, _, _ := procGetMessage.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
-		if int32(ret) <= 0 { // 0 == WM_QUIT, -1 == error
-			break
+		// Windows has no native "hook start" callback; the loop blocks here
+		// until WM_QUIT (posted by End()) or an error.
+		var m msg
+		for {
+			ret, _, _ := procGetMessage.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
+			if int32(ret) <= 0 { // 0 == WM_QUIT, -1 == error
+				break
+			}
 		}
 	}
 
@@ -335,8 +341,9 @@ func winLoop() {
 
 // keyboardProc is the WH_KEYBOARD_LL callback. NewCallback delivers lParam as
 // the typed struct pointer directly, which keeps the (vet-flagged)
-// uintptr->unsafe.Pointer conversion out of our code.
-func keyboardProc(nCode int, wParam uintptr, kb *kbdLLHookStruct) uintptr {
+// uintptr->unsafe.Pointer conversion out of our code. nCode is a C int, so it
+// is declared int32: the upper half of the register is not guaranteed clean.
+func keyboardProc(nCode int32, wParam uintptr, kb *kbdLLHookStruct) uintptr {
 	if nCode >= 0 && kb != nil {
 		switch wParam {
 		case wmKeyDown, wmSysKeyDown:
@@ -346,7 +353,7 @@ func keyboardProc(nCode int, wParam uintptr, kb *kbdLLHookStruct) uintptr {
 		}
 	}
 
-	ret, _, _ := procCallNextHookEx.Call(0, uintptr(nCode), wParam, uintptr(unsafe.Pointer(kb)))
+	ret, _, _ := procCallNextHookEx.Call(0, uintptr(int(nCode)), wParam, uintptr(unsafe.Pointer(kb)))
 	return ret
 }
 
@@ -393,7 +400,7 @@ func processKeyReleased(kb *kbdLLHookStruct) {
 }
 
 // mouseProc is the WH_MOUSE_LL callback (see keyboardProc on the pointer arg).
-func mouseProc(nCode int, wParam uintptr, ms *msLLHookStruct) uintptr {
+func mouseProc(nCode int32, wParam uintptr, ms *msLLHookStruct) uintptr {
 	if nCode >= 0 && ms != nil {
 		switch wParam {
 		case wmLButtonDown:
@@ -427,7 +434,7 @@ func mouseProc(nCode int, wParam uintptr, ms *msLLHookStruct) uintptr {
 		}
 	}
 
-	ret, _, _ := procCallNextHookEx.Call(0, uintptr(nCode), wParam, uintptr(unsafe.Pointer(ms)))
+	ret, _, _ := procCallNextHookEx.Call(0, uintptr(int(nCode)), wParam, uintptr(unsafe.Pointer(ms)))
 	return ret
 }
 

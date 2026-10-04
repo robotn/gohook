@@ -69,6 +69,9 @@ const (
 	xControlMask = 1 << 2
 	xMod1Mask    = 1 << 3 // typically Alt
 	xMod4Mask    = 1 << 6 // typically Super/Meta
+
+	// Button1Mask..Button5Mask: any held pointer button.
+	xButtonMask = 0x1f << 8
 )
 
 // gohook virtual modifier masks (mirrors hook/iohook.h MASK_* for Event.Mask).
@@ -101,9 +104,29 @@ type x11State struct {
 	// per-X-keycode pressed state, used to distinguish KeyDown vs KeyHold
 	// (X delivers auto-repeat as additional KeyPress events).
 	down map[byte]bool
+
+	// position of the last button press, used to emit MouseUp (libuiohook
+	// EVENT_MOUSE_CLICKED) only when the button was released in place.
+	pressX, pressY int16
 }
 
 var xst *x11State
+
+// x11Release detaches st from the package state and tears it down, but only
+// if it is still the live session. Both End() and x11Loop call it, so
+// whichever runs first owns the teardown and the other becomes a no-op.
+func x11Release(st *x11State) {
+	lck.Lock()
+	owned := xst == st
+	if owned {
+		xst = nil
+	}
+	lck.Unlock()
+
+	if owned {
+		x11Teardown(st)
+	}
+}
 
 // Start adds the X11 RECORD listener and returns the event channel.
 //
@@ -132,11 +155,10 @@ func End(tm ...int) {
 
 	lck.Lock()
 	st := xst
-	xst = nil
 	lck.Unlock()
 
 	if st != nil {
-		x11Teardown(st)
+		x11Release(st)
 	}
 
 	time.Sleep(time.Millisecond * time.Duration(tm1))
@@ -212,19 +234,31 @@ func x11Loop() {
 	}
 	st.data = data
 
+	// Publish the state and re-check asyncon under the same lock End() uses,
+	// so an End() that ran before this point is not missed.
 	lck.Lock()
 	xst = st
+	live := asyncon
 	lck.Unlock()
+
+	if !live {
+		x11Release(st)
+		return
+	}
 
 	if err := x11EnableContext(data, recordOpcode(ctrl), ctx); err != nil {
 		send(Event{Kind: HookDisabled})
-		x11Teardown(st)
+		x11Release(st)
 		return
 	}
 
 	send(Event{Kind: HookEnabled})
 
 	x11ReadLoop(st)
+
+	// Reached on End() (already released, no-op) or when the server went
+	// away, in which case the connections are still ours to close.
+	x11Release(st)
 }
 
 // x11Teardown disables/frees the record context (over the control connection)
@@ -418,27 +452,52 @@ func x11OnButton(st *x11State, buf []byte, press bool) {
 
 	kind := uint8(MouseDown)
 	if !press {
-		kind = MouseUp
+		kind = MouseHold // libuiohook EVENT_MOUSE_RELEASED
 	}
 
-	send(Event{
+	e := Event{
 		Kind:   kind,
 		Button: x11Button(btn),
 		Clicks: 1,
 		X:      x,
 		Y:      y,
 		Mask:   mask,
-	})
+	}
+
+	lck.Lock()
+	if press {
+		st.pressX, st.pressY = x, y
+	}
+	clicked := !press && st.pressX == x && st.pressY == y
+	lck.Unlock()
+
+	send(e)
+
+	// CGo parity: a release at the press position is also a "click"
+	// (EVENT_MOUSE_CLICKED == MouseUp).
+	if clicked {
+		e.Kind = MouseUp
+		send(e)
+	}
 }
 
-// x11OnMotion emits MouseMove using the absolute root-window coordinates that
-// the recorded core motion event carries.
+// x11OnMotion emits MouseMove (or MouseDrag while a button is held) using the
+// absolute root-window coordinates that the recorded core motion event
+// carries.
 func x11OnMotion(buf []byte) {
 	me := xproto.MotionNotifyEventNew(buf).(xproto.MotionNotifyEvent)
-	send(Event{Kind: MouseMove, X: me.RootX, Y: me.RootY})
+
+	kind := uint8(MouseMove)
+	if me.State&xButtonMask != 0 {
+		kind = MouseDrag
+	}
+
+	send(Event{Kind: kind, X: me.RootX, Y: me.RootY, Mask: maskFromState(me.State)})
 }
 
-// x11Button maps an X core button number to a gohook MouseMap code.
+// x11Button maps an X core button number to a gohook MouseMap code. X reports
+// the side/extra (back/forward) buttons as 8/9, which gohook numbers 4/5 as
+// on the other backends.
 func x11Button(btn byte) uint16 {
 	switch btn {
 	case 1:
@@ -447,6 +506,10 @@ func x11Button(btn byte) uint16 {
 		return MouseMap["center"] // X middle button
 	case 3:
 		return MouseMap["right"]
+	case 8:
+		return 4
+	case 9:
+		return 5
 	default:
 		return uint16(btn)
 	}

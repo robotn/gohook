@@ -93,3 +93,55 @@ func TestWinXButton(t *testing.T) {
 
 	winModifiers = 0
 }
+
+// captureEvents runs fn with a fresh event channel and returns everything it
+// sent.
+func captureEvents(fn func()) []Event {
+	ev = make(chan Event, 16)
+	asyncon = true
+	defer func() { asyncon = false }()
+
+	fn()
+
+	out := []Event{}
+	for len(ev) != 0 {
+		out = append(out, <-ev)
+	}
+	return out
+}
+
+// TestWinMouseWheel verifies the signed HIWORD wheel delta maps to libuiohook
+// rotation: +120 (forward/up) -> WheelUp (-1), -120 -> WheelDown (1).
+func TestWinMouseWheel(t *testing.T) {
+	got := captureEvents(func() {
+		processMouseWheel(&msLLHookStruct{mouseData: uint32(uint16(120)) << 16}, wheelVerticalDir)
+		processMouseWheel(&msLLHookStruct{mouseData: uint32(uint16(0xFF88)) << 16}, wheelHorizontalDir) // -120
+	})
+	tt.Equal(t, 2, len(got))
+	tt.Equal(t, MouseWheel, got[0].Kind)
+	tt.Equal(t, WheelUp, got[0].Rotation)
+	tt.Equal(t, uint8(wheelVerticalDir), got[0].Direction)
+	tt.Equal(t, WheelDown, got[1].Rotation)
+	tt.Equal(t, uint8(wheelHorizontalDir), got[1].Direction)
+}
+
+// TestWinButtonRelease verifies release -> MouseHold (RELEASED) then MouseUp
+// (CLICKED) only when released at the press position.
+func TestWinButtonRelease(t *testing.T) {
+	winModifiers = 0
+	clickCount, clickTime, clickButton = 0, 0, 0
+
+	got := captureEvents(func() {
+		processButtonPressed(&msLLHookStruct{pt: point{10, 20}, time: 1000}, MouseMap["left"])
+		processButtonReleased(&msLLHookStruct{pt: point{10, 20}, time: 1050}, MouseMap["left"])
+		processButtonPressed(&msLLHookStruct{pt: point{10, 20}, time: 5000}, MouseMap["left"])
+		processButtonReleased(&msLLHookStruct{pt: point{30, 20}, time: 5050}, MouseMap["left"])
+	})
+	tt.Equal(t, 5, len(got))
+	tt.Equal(t, MouseDown, got[0].Kind)
+	tt.Equal(t, MouseHold, got[1].Kind)
+	tt.Equal(t, MouseUp, got[2].Kind)
+	tt.Equal(t, uint16(1), got[2].Clicks)
+	tt.Equal(t, MouseDown, got[3].Kind)
+	tt.Equal(t, MouseHold, got[4].Kind) // moved: no click
+}

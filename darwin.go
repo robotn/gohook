@@ -79,19 +79,20 @@ const (
 // CGEventField values (CGEventTypes.h).
 const (
 	fieldMouseClickState   uint32 = 1
+	fieldMouseButtonNumber uint32 = 3
 	fieldKeyboardKeycode   uint32 = 9
 	fieldScrollWheelDelta1 uint32 = 11
 	fieldScrollWheelDelta2 uint32 = 12
-	fieldMouseButtonNumber uint32 = 23
 )
 
 // CGEventFlags modifier masks (CGEventTypes.h).
 const (
-	flagAlphaShift uint64 = 0x00010000 // caps lock
-	flagShift      uint64 = 0x00020000
-	flagControl    uint64 = 0x00040000
-	flagAlternate  uint64 = 0x00080000 // option/alt
-	flagCommand    uint64 = 0x00100000
+	flagAlphaShift  uint64 = 0x00010000 // caps lock
+	flagShift       uint64 = 0x00020000
+	flagControl     uint64 = 0x00040000
+	flagAlternate   uint64 = 0x00080000 // option/alt
+	flagCommand     uint64 = 0x00100000
+	flagSecondaryFn uint64 = 0x00800000 // fn
 )
 
 // gohook virtual modifier masks (mirrors hook/iohook.h MASK_* for Event.Mask).
@@ -128,7 +129,11 @@ const (
 	vkOption   uint16 = 58
 	vkOptionR  uint16 = 61
 	vkCapsLock uint16 = 57
+	vkFunction uint16 = 63
 )
+
+// Run-loop slice for the poll in darwinLoop (see there for why we poll).
+const runLoopSlice = 0.25
 
 // cgPoint mirrors the C CGPoint struct (two CGFloat == float64). purego
 // returns it by value from CGEventGetLocation (darwin amd64/arm64).
@@ -150,13 +155,14 @@ var (
 	cfRunLoopAddSource            func(rl, source, mode uintptr)
 	cfRunLoopRemoveSource         func(rl, source, mode uintptr)
 	cfRunLoopSourceInvalidate     func(source uintptr)
-	cfRunLoopRun                  func()
+	cfRunLoopRunInMode            func(mode uintptr, seconds float64, returnAfterSourceHandled bool) int32
 	cfRunLoopStop                 func(rl uintptr)
 	cfRelease                     func(cf uintptr)
 
 	axIsProcessTrusted func() bool
 
 	kCFRunLoopCommonModes uintptr
+	kCFRunLoopDefaultMode uintptr
 	cgCallbackPtr         uintptr
 
 	darwinOnce    sync.Once
@@ -169,6 +175,10 @@ type darwinState struct {
 	tapPort uintptr
 	source  uintptr
 	runLoop uintptr
+
+	// position of the last button press, used to emit MouseUp (libuiohook
+	// EVENT_MOUSE_CLICKED) only when the button was released in place.
+	pressX, pressY int16
 }
 
 var mac *darwinState
@@ -205,7 +215,7 @@ func initDarwin() error {
 		purego.RegisterLibFunc(&cfRunLoopAddSource, cf, "CFRunLoopAddSource")
 		purego.RegisterLibFunc(&cfRunLoopRemoveSource, cf, "CFRunLoopRemoveSource")
 		purego.RegisterLibFunc(&cfRunLoopSourceInvalidate, cf, "CFRunLoopSourceInvalidate")
-		purego.RegisterLibFunc(&cfRunLoopRun, cf, "CFRunLoopRun")
+		purego.RegisterLibFunc(&cfRunLoopRunInMode, cf, "CFRunLoopRunInMode")
 		purego.RegisterLibFunc(&cfRunLoopStop, cf, "CFRunLoopStop")
 		purego.RegisterLibFunc(&cfRelease, cf, "CFRelease")
 
@@ -221,6 +231,13 @@ func initDarwin() error {
 			return
 		}
 		kCFRunLoopCommonModes = **(**uintptr)(unsafe.Pointer(&sym))
+
+		sym, err = purego.Dlsym(cf, "kCFRunLoopDefaultMode")
+		if err != nil {
+			darwinInitErr = err
+			return
+		}
+		kCFRunLoopDefaultMode = **(**uintptr)(unsafe.Pointer(&sym))
 
 		cgCallbackPtr = purego.NewCallback(eventCallback)
 	})
@@ -257,8 +274,9 @@ func End(tm ...int) {
 	st := mac
 	lck.Unlock()
 
-	// Stopping the run loop unblocks darwinLoop's CFRunLoopRun and triggers
-	// teardown. CFRunLoopStop is thread-safe.
+	// Stopping the run loop wakes darwinLoop promptly; the loop also polls
+	// asyncon, so a stop that lands before the loop is running is not lost.
+	// CFRunLoopStop is thread-safe.
 	if st != nil && st.runLoop != 0 {
 		cfRunLoopStop(st.runLoop)
 	}
@@ -328,14 +346,22 @@ func darwinLoop() {
 	cfRunLoopAddSource(runLoop, source, kCFRunLoopCommonModes)
 	cgEventTapEnable(port, true)
 
+	// Publish the state and re-check asyncon under the same lock End() uses,
+	// so an End() that ran before this point is not missed.
 	lck.Lock()
 	mac = &darwinState{tapPort: port, source: source, runLoop: runLoop}
+	live := asyncon
 	lck.Unlock()
 
-	send(Event{Kind: HookEnabled})
+	if live {
+		send(Event{Kind: HookEnabled})
+	}
 
-	// Blocks here until End() calls CFRunLoopStop.
-	cfRunLoopRun()
+	// CFRunLoopStop only affects a loop that is already running, so pump in
+	// short slices and re-check asyncon instead of blocking in CFRunLoopRun.
+	for asyncon {
+		cfRunLoopRunInMode(kCFRunLoopDefaultMode, runLoopSlice, false)
+	}
 
 	// Teardown.
 	cgEventTapEnable(port, false)
@@ -387,33 +413,39 @@ func eventCallback(proxy, typ, event, refcon uintptr) uintptr {
 		return event
 	}
 
-	if e, ok := buildEvent(t, event); ok {
-		send(e)
-	}
+	dispatchEvent(t, event)
 
 	// ListenOnly taps ignore the return value, but pass the event through.
 	return event
 }
 
-// buildEvent translates a native Quartz event into a gohook Event.
-func buildEvent(t uint32, event uintptr) (Event, bool) {
+// dispatchEvent translates a native Quartz event into gohook Events and
+// sends them.
+func dispatchEvent(t uint32, event uintptr) {
 	switch t {
 	case cgEventKeyDown:
-		return keyEvent(KeyDown, event), true
+		send(keyEvent(KeyDown, event))
 	case cgEventKeyUp:
-		return keyEvent(KeyUp, event), true
+		send(keyEvent(KeyUp, event))
 	case cgEventFlagsChanged:
-		return modifierEvent(event), true
-	case cgEventLeftMouseDown, cgEventLeftMouseUp,
-		cgEventRightMouseDown, cgEventRightMouseUp,
-		cgEventOtherMouseDown, cgEventOtherMouseUp,
-		cgEventMouseMoved,
+		send(modifierEvent(event))
+	case cgEventLeftMouseDown, cgEventRightMouseDown, cgEventOtherMouseDown:
+		send(buttonEvent(t, event))
+	case cgEventLeftMouseUp, cgEventRightMouseUp, cgEventOtherMouseUp:
+		// libuiohook parity: MOUSE_RELEASED (MouseHold) always, followed by
+		// MOUSE_CLICKED (MouseUp) when released where it was pressed.
+		e := buttonEvent(t, event)
+		send(e)
+		if released, ok := clickedEvent(e); ok {
+			send(released)
+		}
+	case cgEventMouseMoved,
 		cgEventLeftMouseDragged, cgEventRightMouseDragged, cgEventOtherMouseDragged,
 		cgEventScrollWheel:
-		return mouseEvent(t, event)
+		if e, ok := mouseEvent(t, event); ok {
+			send(e)
+		}
 	}
-
-	return Event{}, false
 }
 
 // keyEvent builds a key Event from a native event of a given kind.
@@ -448,6 +480,10 @@ func modifierEvent(event uintptr) Event {
 		}
 	case vkCapsLock:
 		if flags&flagAlphaShift != 0 {
+			kind = KeyDown
+		}
+	case vkFunction:
+		if flags&flagSecondaryFn != 0 {
 			kind = KeyDown
 		}
 	default:
@@ -489,28 +525,63 @@ func makeKeyEvent(kind uint8, raw uint16, flags uint64) Event {
 	return e
 }
 
-// mouseEvent builds a mouse Event from a native pointer/scroll event.
+// buttonEvent builds a MouseDown (pressed) or MouseHold (released) Event and
+// records the press position for clickedEvent.
+func buttonEvent(t uint32, event uintptr) Event {
+	loc := cgEventGetLocation(event)
+	e := Event{
+		Kind:   MouseDown,
+		X:      int16(loc.x),
+		Y:      int16(loc.y),
+		Mask:   maskFromFlags(cgEventGetFlags(event)),
+		Clicks: uint16(cgEventGetIntegerValueField(event, fieldMouseClickState)),
+	}
+
+	switch t {
+	case cgEventLeftMouseDown, cgEventLeftMouseUp:
+		e.Button = MouseMap["left"]
+	case cgEventRightMouseDown, cgEventRightMouseUp:
+		e.Button = MouseMap["right"]
+	default:
+		// kCGMouseEventButtonNumber is 0-based (2 == middle).
+		e.Button = uint16(cgEventGetIntegerValueField(event, fieldMouseButtonNumber)) + 1
+	}
+
+	switch t {
+	case cgEventLeftMouseUp, cgEventRightMouseUp, cgEventOtherMouseUp:
+		e.Kind = MouseHold
+	default:
+		lck.Lock()
+		if mac != nil {
+			mac.pressX, mac.pressY = e.X, e.Y
+		}
+		lck.Unlock()
+	}
+
+	return e
+}
+
+// clickedEvent derives the MouseUp (libuiohook EVENT_MOUSE_CLICKED) Event
+// from a MouseHold when the button was released at the press position.
+func clickedEvent(released Event) (Event, bool) {
+	lck.Lock()
+	st := mac
+	lck.Unlock()
+	if st == nil || st.pressX != released.X || st.pressY != released.Y {
+		return Event{}, false
+	}
+
+	released.Kind = MouseUp
+	return released, true
+}
+
+// mouseEvent builds a mouse Event from a native motion/scroll event.
 func mouseEvent(t uint32, event uintptr) (Event, bool) {
 	loc := cgEventGetLocation(event)
 	x, y := int16(loc.x), int16(loc.y)
 	mask := maskFromFlags(cgEventGetFlags(event))
-	clicks := uint16(cgEventGetIntegerValueField(event, fieldMouseClickState))
 
 	switch t {
-	case cgEventLeftMouseDown:
-		return Event{Kind: MouseDown, Button: MouseMap["left"], Clicks: clicks, X: x, Y: y, Mask: mask}, true
-	case cgEventLeftMouseUp:
-		return Event{Kind: MouseUp, Button: MouseMap["left"], Clicks: clicks, X: x, Y: y, Mask: mask}, true
-	case cgEventRightMouseDown:
-		return Event{Kind: MouseDown, Button: MouseMap["right"], Clicks: clicks, X: x, Y: y, Mask: mask}, true
-	case cgEventRightMouseUp:
-		return Event{Kind: MouseUp, Button: MouseMap["right"], Clicks: clicks, X: x, Y: y, Mask: mask}, true
-	case cgEventOtherMouseDown:
-		btn := uint16(cgEventGetIntegerValueField(event, fieldMouseButtonNumber)) + 1
-		return Event{Kind: MouseDown, Button: btn, Clicks: clicks, X: x, Y: y, Mask: mask}, true
-	case cgEventOtherMouseUp:
-		btn := uint16(cgEventGetIntegerValueField(event, fieldMouseButtonNumber)) + 1
-		return Event{Kind: MouseUp, Button: btn, Clicks: clicks, X: x, Y: y, Mask: mask}, true
 	case cgEventMouseMoved:
 		return Event{Kind: MouseMove, X: x, Y: y, Mask: mask}, true
 	case cgEventLeftMouseDragged, cgEventRightMouseDragged, cgEventOtherMouseDragged:
@@ -526,12 +597,18 @@ func mouseEvent(t uint32, event uintptr) (Event, bool) {
 func wheelEvent(event uintptr, x, y int16, mask uint16) Event {
 	d1 := cgEventGetIntegerValueField(event, fieldScrollWheelDelta1)
 	d2 := cgEventGetIntegerValueField(event, fieldScrollWheelDelta2)
+	return wheelFromDeltas(d1, d2, x, y, mask)
+}
 
+// wheelFromDeltas builds a MouseWheel Event from the two Quartz axis deltas.
+func wheelFromDeltas(d1, d2 int64, x, y int16, mask uint16) Event {
+	// libuiohook parity: rotation = delta * -1, so scrolling up yields
+	// WheelUp (-1) like the CGo, X11 and Windows backends.
 	dir := wheelVertical
-	rot := int32(d1)
+	rot := int32(-d1)
 	if d1 == 0 && d2 != 0 {
 		dir = wheelHorizontal
-		rot = int32(d2)
+		rot = int32(-d2)
 	}
 
 	amt := rot

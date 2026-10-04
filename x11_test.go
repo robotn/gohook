@@ -15,6 +15,7 @@ package hook
 import (
 	"testing"
 
+	"github.com/jezek/xgb"
 	"github.com/jezek/xgb/xproto"
 	"github.com/vcaesar/tt"
 )
@@ -113,4 +114,131 @@ func TestX11Dial(t *testing.T) {
 
 	_, _, _, err = x11Dial(":")
 	tt.NotNil(t, err)
+}
+
+// xEvent packs a 32-byte core KeyButtonPointer-style event (KeyPress,
+// ButtonPress, MotionNotify ...) as the RECORD data stream carries it.
+func xEvent(typ, detail byte, rootX, rootY int16, state uint16) []byte {
+	buf := make([]byte, 32)
+	buf[0] = typ
+	buf[1] = detail
+	xgb.Put16(buf[20:], uint16(rootX))
+	xgb.Put16(buf[22:], uint16(rootY))
+	xgb.Put16(buf[28:], state)
+	return buf
+}
+
+// captureEvents runs fn with a fresh event channel and returns everything it
+// sent.
+func captureEvents(fn func()) []Event {
+	ev = make(chan Event, 16)
+	asyncon = true
+	defer func() { asyncon = false }()
+
+	fn()
+
+	out := []Event{}
+	for len(ev) != 0 {
+		out = append(out, <-ev)
+	}
+	return out
+}
+
+// TestX11ButtonExtra verifies X side/extra buttons 8/9 map to gohook 4/5.
+func TestX11ButtonExtra(t *testing.T) {
+	tt.Equal(t, uint16(4), x11Button(8))
+	tt.Equal(t, uint16(5), x11Button(9))
+}
+
+// TestX11OnButton verifies CGo parity: press -> MouseDown; release ->
+// MouseHold (RELEASED) followed by MouseUp (CLICKED) only when released at the
+// press position.
+func TestX11OnButton(t *testing.T) {
+	st := &x11State{down: map[byte]bool{}}
+
+	got := captureEvents(func() {
+		x11OnButton(st, xEvent(xproto.ButtonPress, 1, 10, 20, 0), true)
+		x11OnButton(st, xEvent(xproto.ButtonRelease, 1, 10, 20, xShiftMask), false)
+	})
+	tt.Equal(t, 3, len(got))
+	tt.Equal(t, MouseDown, got[0].Kind)
+	tt.Equal(t, MouseHold, got[1].Kind)
+	tt.Equal(t, MouseUp, got[2].Kind)
+	tt.Equal(t, MouseMap["left"], got[2].Button)
+	tt.Equal(t, int16(10), got[2].X)
+	tt.Equal(t, maskShiftL, got[2].Mask)
+
+	// Released elsewhere: no click.
+	got = captureEvents(func() {
+		x11OnButton(st, xEvent(xproto.ButtonPress, 3, 1, 1, 0), true)
+		x11OnButton(st, xEvent(xproto.ButtonRelease, 3, 50, 1, 0), false)
+	})
+	tt.Equal(t, 2, len(got))
+	tt.Equal(t, MouseHold, got[1].Kind)
+	tt.Equal(t, MouseMap["right"], got[1].Button)
+
+	// Wheel: single MouseWheel on press, release dropped.
+	got = captureEvents(func() {
+		x11OnButton(st, xEvent(xproto.ButtonPress, 4, 0, 0, 0), true)
+		x11OnButton(st, xEvent(xproto.ButtonRelease, 4, 0, 0, 0), false)
+	})
+	tt.Equal(t, 1, len(got))
+	tt.Equal(t, MouseWheel, got[0].Kind)
+}
+
+// TestX11OnMotion verifies motion with a held button is a MouseDrag and the
+// modifier mask is carried.
+func TestX11OnMotion(t *testing.T) {
+	got := captureEvents(func() {
+		x11OnMotion(xEvent(xproto.MotionNotify, 0, 3, 4, 0))
+		x11OnMotion(xEvent(xproto.MotionNotify, 0, 5, 6, xproto.ButtonMask1|xControlMask))
+	})
+	tt.Equal(t, 2, len(got))
+	tt.Equal(t, MouseMove, got[0].Kind)
+	tt.Equal(t, int16(3), got[0].X)
+	tt.Equal(t, MouseDrag, got[1].Kind)
+	tt.Equal(t, int16(6), got[1].Y)
+	tt.Equal(t, maskCtrlL, got[1].Mask)
+}
+
+// TestX11OnKey verifies KeyDown / KeyHold (auto-repeat) / KeyUp and the
+// evdev Keycode + keysym Rawcode split.
+func TestX11OnKey(t *testing.T) {
+	st := &x11State{
+		down:       map[byte]bool{},
+		minKeycode: 8,
+		perCode:    2,
+		keysyms:    []xproto.Keysym{0x61, 0x41}, // keycode 8: a / A
+	}
+
+	got := captureEvents(func() {
+		x11OnKey(st, xEvent(xproto.KeyPress, 8, 0, 0, 0), true)
+		x11OnKey(st, xEvent(xproto.KeyPress, 8, 0, 0, 0), true)
+		x11OnKey(st, xEvent(xproto.KeyRelease, 8, 0, 0, xShiftMask), false)
+	})
+	tt.Equal(t, 3, len(got))
+	tt.Equal(t, KeyDown, got[0].Kind)
+	tt.Equal(t, KeyHold, got[1].Kind)
+	tt.Equal(t, KeyUp, got[2].Kind)
+	tt.Equal(t, uint16(0), got[0].Keycode) // evdev = X keycode - 8
+	tt.Equal(t, uint16(0x61), got[0].Rawcode)
+	tt.Equal(t, 'a', got[0].Keychar)
+	tt.Equal(t, 'A', got[2].Keychar)
+	tt.Equal(t, "a", RawcodeToKeychar(0x61))
+}
+
+// TestX11Release verifies teardown ownership: only the live session is torn
+// down, and a second release is a no-op.
+func TestX11Release(t *testing.T) {
+	st := &x11State{}
+	lck.Lock()
+	xst = st
+	lck.Unlock()
+
+	x11Release(st)
+	lck.Lock()
+	tt.Equal(t, true, xst == nil)
+	lck.Unlock()
+
+	x11Release(st) // no-op, must not panic on nil connections
 }
