@@ -197,10 +197,6 @@ type winState struct {
 var (
 	win *winState
 
-	// winSession identifies the current Start() call; Start and End bump it
-	// so a winLoop that outlived its session never goes live. Guarded by lck.
-	winSession uint64
-
 	// Persistent C-callable trampolines for the two hooks. Allocated once via
 	// NewCallback (which never frees) so they are created lazily and reused.
 	keyboardCallback uintptr
@@ -227,14 +223,10 @@ func Start(tm ...int) chan Event {
 	_ = tm
 
 	ev = make(chan Event, 1024)
-	asyncon = true
+	asyncon.Store(true)
 
-	lck.Lock()
-	winSession++
-	sess := winSession
-	lck.Unlock()
-
-	go winLoop(sess)
+	sess, done := beginSession()
+	go winLoop(sess, done)
 
 	return ev
 }
@@ -247,10 +239,10 @@ func End(tm ...int) {
 		tm1 = tm[0]
 	}
 
-	asyncon = false
+	asyncon.Store(false)
+	done := endSession()
 
 	lck.Lock()
-	winSession++
 	tid := uint32(0)
 	if win != nil {
 		tid = win.threadID
@@ -258,11 +250,13 @@ func End(tm ...int) {
 	lck.Unlock()
 
 	// Posting WM_QUIT unblocks GetMessage on the hook thread, which then
-	// unhooks and returns.
+	// unhooks and returns. A loop still in setup sees its session ended and
+	// never goes live.
 	if tid != 0 {
 		procPostThreadMessage.Call(uintptr(tid), wmQuit, 0, 0)
 	}
 
+	waitSession(done, tm1)
 	time.Sleep(time.Millisecond * time.Duration(tm1))
 
 	for len(ev) != 0 {
@@ -287,8 +281,11 @@ func addEvent(key string) int {
 func StopEvent() {}
 
 // winLoop installs the hooks on a pinned OS thread and pumps the message loop
-// until End() posts WM_QUIT. sess is the Start() session it belongs to.
-func winLoop(sess uint64) {
+// until End() posts WM_QUIT. sess is the Start() session it belongs to; done
+// is closed once the hooks are removed.
+func winLoop(sess uint64, done chan struct{}) {
+	defer close(done)
+
 	// LL hooks are delivered on the installing thread's message queue, so this
 	// goroutine must stay on one OS thread for the whole session.
 	runtime.LockOSThread()
@@ -311,18 +308,16 @@ func winLoop(sess uint64) {
 		if msHook != 0 {
 			procUnhookWindowsHook.Call(msHook)
 		}
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		return
 	}
 
 	// Publish the state only if this is still the current session, under the
 	// same lock End() uses, so an End() that ran before this point is not
-	// missed. asyncon alone is not enough: a later Start() sets it again,
-	// which would leave this stale loop's hooks installed on a thread nobody
-	// posts WM_QUIT to, and its events leaking into the new session.
+	// missed and a later Start() cannot revive this stale loop.
 	st := &winState{keyboardHook: kbHook, mouseHook: msHook, threadID: uint32(tid)}
 	lck.Lock()
-	live := sess == winSession
+	live := sess == sessionID
 	if live {
 		win = st
 	}
@@ -689,7 +684,7 @@ func wheelAmount() uint16 {
 // torn down by Windows). The recover guards the small shutdown window where
 // End() may have closed ev while a callback is still in flight.
 func send(e Event) {
-	if !asyncon {
+	if !asyncon.Load() {
 		return
 	}
 	defer func() { _ = recover() }() // ev closed by End(): drop silently

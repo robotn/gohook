@@ -176,9 +176,9 @@ type darwinState struct {
 	source  uintptr
 	runLoop uintptr
 
-	// position of the last button press, used to emit MouseUp (libuiohook
-	// EVENT_MOUSE_CLICKED) only when the button was released in place.
-	pressX, pressY int16
+	// held, undragged buttons, used to emit MouseUp (libuiohook
+	// EVENT_MOUSE_CLICKED) only for a release without an intervening drag.
+	clicks clickTracker
 }
 
 var mac *darwinState
@@ -254,9 +254,10 @@ func Start(tm ...int) chan Event {
 	_ = tm
 
 	ev = make(chan Event, 1024)
-	asyncon = true
+	asyncon.Store(true)
 
-	go darwinLoop()
+	sess, done := beginSession()
+	go darwinLoop(sess, done)
 
 	return ev
 }
@@ -268,19 +269,21 @@ func End(tm ...int) {
 		tm1 = tm[0]
 	}
 
-	asyncon = false
+	asyncon.Store(false)
+	done := endSession()
 
 	lck.Lock()
 	st := mac
 	lck.Unlock()
 
 	// Stopping the run loop wakes darwinLoop promptly; the loop also polls
-	// asyncon, so a stop that lands before the loop is running is not lost.
-	// CFRunLoopStop is thread-safe.
+	// its session, so a stop that lands before the loop is running is not
+	// lost. CFRunLoopStop is thread-safe.
 	if st != nil && st.runLoop != 0 {
 		cfRunLoopStop(st.runLoop)
 	}
 
+	waitSession(done, tm1)
 	time.Sleep(time.Millisecond * time.Duration(tm1))
 
 	for len(ev) != 0 {
@@ -289,10 +292,6 @@ func End(tm ...int) {
 	close(ev)
 
 	resetState()
-
-	lck.Lock()
-	mac = nil
-	lck.Unlock()
 }
 
 // addEvent: the single-shot *blocking* listener (AddEvent/StopEvent) is a
@@ -309,28 +308,31 @@ func addEvent(key string) int {
 func StopEvent() {}
 
 // darwinLoop creates the event tap, wires it into a CFRunLoop and pumps the
-// loop until End() stops it.
-func darwinLoop() {
+// loop until End() stops it. sess is the Start() session it belongs to; done
+// is closed once the tap is torn down.
+func darwinLoop(sess uint64, done chan struct{}) {
+	defer close(done)
+
 	// The tap, its run-loop source and CFRunLoopRun must all live on one OS
 	// thread.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	if err := initDarwin(); err != nil {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		return
 	}
 
 	// A session tap only delivers events with the Accessibility privilege.
 	if !axIsProcessTrusted() {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		return
 	}
 
 	port := cgEventTapCreate(cgSessionEventTap, cgHeadInsertEventTap,
 		cgEventTapOptionListenOnly, cgEventMask(), cgCallbackPtr, 0)
 	if port == 0 {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		return
 	}
 
@@ -338,7 +340,7 @@ func darwinLoop() {
 	if source == 0 {
 		cfMachPortInvalidate(port)
 		cfRelease(port)
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		return
 	}
 
@@ -346,11 +348,15 @@ func darwinLoop() {
 	cfRunLoopAddSource(runLoop, source, kCFRunLoopCommonModes)
 	cgEventTapEnable(port, true)
 
-	// Publish the state and re-check asyncon under the same lock End() uses,
-	// so an End() that ran before this point is not missed.
+	// Publish the state only if this is still the current session, under the
+	// same lock End() uses, so an End() that ran before this point is not
+	// missed and a later Start() cannot revive this stale tap.
+	st := &darwinState{tapPort: port, source: source, runLoop: runLoop}
 	lck.Lock()
-	mac = &darwinState{tapPort: port, source: source, runLoop: runLoop}
-	live := asyncon
+	live := sess == sessionID
+	if live {
+		mac = st
+	}
 	lck.Unlock()
 
 	if live {
@@ -358,12 +364,19 @@ func darwinLoop() {
 	}
 
 	// CFRunLoopStop only affects a loop that is already running, so pump in
-	// short slices and re-check asyncon instead of blocking in CFRunLoopRun.
-	for asyncon {
+	// short slices and re-check the session instead of blocking in
+	// CFRunLoopRun.
+	for live && isCurrent(sess) {
 		cfRunLoopRunInMode(kCFRunLoopDefaultMode, runLoopSlice, false)
 	}
 
-	// Teardown.
+	// Teardown; only clear our own state, not that of a newer session.
+	lck.Lock()
+	if mac == st {
+		mac = nil
+	}
+	lck.Unlock()
+
 	cgEventTapEnable(port, false)
 	cfRunLoopRemoveSource(runLoop, source, kCFRunLoopCommonModes)
 	cfRunLoopSourceInvalidate(source)
@@ -371,7 +384,7 @@ func darwinLoop() {
 	cfMachPortInvalidate(port)
 	cfRelease(port)
 
-	send(Event{Kind: HookDisabled})
+	sendFor(sess, Event{Kind: HookDisabled})
 }
 
 // cgEventMask returns the bitmask of Quartz event types we subscribe to.
@@ -409,7 +422,7 @@ func eventCallback(proxy, typ, event, refcon uintptr) uintptr {
 		return event
 	}
 
-	if !asyncon {
+	if !asyncon.Load() {
 		return event
 	}
 
@@ -433,15 +446,22 @@ func dispatchEvent(t uint32, event uintptr) {
 		send(buttonEvent(t, event))
 	case cgEventLeftMouseUp, cgEventRightMouseUp, cgEventOtherMouseUp:
 		// libuiohook parity: MOUSE_RELEASED (MouseHold) always, followed by
-		// MOUSE_CLICKED (MouseUp) when released where it was pressed.
+		// MOUSE_CLICKED (MouseUp) when the press was not dragged.
 		e := buttonEvent(t, event)
 		send(e)
 		if released, ok := clickedEvent(e); ok {
 			send(released)
 		}
-	case cgEventMouseMoved,
-		cgEventLeftMouseDragged, cgEventRightMouseDragged, cgEventOtherMouseDragged,
-		cgEventScrollWheel:
+	case cgEventLeftMouseDragged, cgEventRightMouseDragged, cgEventOtherMouseDragged:
+		lck.Lock()
+		if mac != nil {
+			mac.clicks.drag()
+		}
+		lck.Unlock()
+		if e, ok := mouseEvent(t, event); ok {
+			send(e)
+		}
+	case cgEventMouseMoved, cgEventScrollWheel:
 		if e, ok := mouseEvent(t, event); ok {
 			send(e)
 		}
@@ -526,7 +546,7 @@ func makeKeyEvent(kind uint8, raw uint16, flags uint64) Event {
 }
 
 // buttonEvent builds a MouseDown (pressed) or MouseHold (released) Event and
-// records the press position for clickedEvent.
+// records the press for clickedEvent.
 func buttonEvent(t uint32, event uintptr) Event {
 	loc := cgEventGetLocation(event)
 	e := Event{
@@ -553,7 +573,7 @@ func buttonEvent(t uint32, event uintptr) Event {
 	default:
 		lck.Lock()
 		if mac != nil {
-			mac.pressX, mac.pressY = e.X, e.Y
+			mac.clicks.press(e.Button)
 		}
 		lck.Unlock()
 	}
@@ -562,12 +582,13 @@ func buttonEvent(t uint32, event uintptr) Event {
 }
 
 // clickedEvent derives the MouseUp (libuiohook EVENT_MOUSE_CLICKED) Event
-// from a MouseHold when the button was released at the press position.
+// from a MouseHold when it completes an undragged press of the same button
+// (CGo darwin parity: hook/darwin/hook_c.h suppresses clicks after a drag).
 func clickedEvent(released Event) (Event, bool) {
 	lck.Lock()
-	st := mac
+	clicked := mac != nil && mac.clicks.release(released.Button)
 	lck.Unlock()
-	if st == nil || st.pressX != released.X || st.pressY != released.Y {
+	if !clicked {
 		return Event{}, false
 	}
 
@@ -654,7 +675,7 @@ func maskFromFlags(flags uint64) uint16 {
 // the buffer is full. The recover guards the small shutdown window where End()
 // may have closed ev while a tap callback is still in flight.
 func send(e Event) {
-	if !asyncon {
+	if !asyncon.Load() {
 		return
 	}
 	defer func() { _ = recover() }() // ev closed by End(): drop silently

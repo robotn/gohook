@@ -102,8 +102,8 @@ func captureEvents(fn func()) []Event {
 	End()
 
 	ev = make(chan Event, 16)
-	asyncon = true
-	defer func() { asyncon = false }()
+	asyncon.Store(true)
+	defer func() { asyncon.Store(false) }()
 
 	fn()
 
@@ -159,9 +159,9 @@ func TestWinStaleSession(t *testing.T) {
 
 	// A new session's channel; not captureEvents, whose End would re-close ev.
 	ev = make(chan Event, 16)
-	asyncon = true
+	asyncon.Store(true)
 	time.Sleep(300 * time.Millisecond)
-	asyncon = false
+	asyncon.Store(false)
 	tt.Equal(t, 0, len(ev))
 
 	lck.Lock()

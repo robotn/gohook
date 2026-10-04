@@ -76,11 +76,13 @@ func TestDarwinMakeKeyEvent(t *testing.T) {
 	tt.Equal(t, rune(CharUndefined), u.Keychar)
 }
 
-// TestDarwinClickedEvent verifies a release at the press position derives the
-// MouseUp (EVENT_MOUSE_CLICKED) event and a moved release does not.
+// TestDarwinClickedEvent verifies the release of an undragged press derives
+// the MouseUp (EVENT_MOUSE_CLICKED) event, while a dragged press (even one
+// returned to its start) or an unmatched release does not.
 func TestDarwinClickedEvent(t *testing.T) {
+	st := &darwinState{}
 	lck.Lock()
-	mac = &darwinState{pressX: 5, pressY: 6}
+	mac = st
 	lck.Unlock()
 	defer func() {
 		lck.Lock()
@@ -89,12 +91,21 @@ func TestDarwinClickedEvent(t *testing.T) {
 	}()
 
 	rel := Event{Kind: MouseHold, Button: 1, X: 5, Y: 6}
+
+	st.clicks.press(1)
 	c, ok := clickedEvent(rel)
 	tt.Equal(t, true, ok)
 	tt.Equal(t, MouseUp, c.Kind)
 	tt.Equal(t, uint16(1), c.Button)
 
-	_, ok = clickedEvent(Event{Kind: MouseHold, X: 7, Y: 6})
+	// Unmatched release (the press was already consumed).
+	_, ok = clickedEvent(rel)
+	tt.Equal(t, false, ok)
+
+	// Dragged press: no click even when released at the press point.
+	st.clicks.press(1)
+	st.clicks.drag()
+	_, ok = clickedEvent(rel)
 	tt.Equal(t, false, ok)
 }
 

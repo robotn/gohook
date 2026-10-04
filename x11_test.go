@@ -132,8 +132,8 @@ func xEvent(typ, detail byte, rootX, rootY int16, state uint16) []byte {
 // sent.
 func captureEvents(fn func()) []Event {
 	ev = make(chan Event, 16)
-	asyncon = true
-	defer func() { asyncon = false }()
+	asyncon.Store(true)
+	defer func() { asyncon.Store(false) }()
 
 	fn()
 
@@ -151,8 +151,8 @@ func TestX11ButtonExtra(t *testing.T) {
 }
 
 // TestX11OnButton verifies CGo parity: press -> MouseDown; release ->
-// MouseHold (RELEASED) followed by MouseUp (CLICKED) only when released at the
-// press position.
+// MouseHold (RELEASED) followed by MouseUp (CLICKED) only for a matching press
+// with no drag in between.
 func TestX11OnButton(t *testing.T) {
 	st := &x11State{down: map[byte]bool{}}
 
@@ -168,14 +168,23 @@ func TestX11OnButton(t *testing.T) {
 	tt.Equal(t, int16(10), got[2].X)
 	tt.Equal(t, maskShiftL, got[2].Mask)
 
-	// Released elsewhere: no click.
+	// Dragged away and back to the press point: no click.
 	got = captureEvents(func() {
 		x11OnButton(st, xEvent(xproto.ButtonPress, 3, 1, 1, 0), true)
-		x11OnButton(st, xEvent(xproto.ButtonRelease, 3, 50, 1, 0), false)
+		x11OnMotion(st, xEvent(xproto.MotionNotify, 0, 50, 1, xproto.ButtonMask3))
+		x11OnMotion(st, xEvent(xproto.MotionNotify, 0, 1, 1, xproto.ButtonMask3))
+		x11OnButton(st, xEvent(xproto.ButtonRelease, 3, 1, 1, 0), false)
 	})
-	tt.Equal(t, 2, len(got))
-	tt.Equal(t, MouseHold, got[1].Kind)
-	tt.Equal(t, MouseMap["right"], got[1].Button)
+	tt.Equal(t, 4, len(got))
+	tt.Equal(t, MouseHold, got[3].Kind)
+	tt.Equal(t, MouseMap["right"], got[3].Button)
+
+	// Unmatched release (no press seen, e.g. at the zero position): no click.
+	got = captureEvents(func() {
+		x11OnButton(st, xEvent(xproto.ButtonRelease, 1, 0, 0, 0), false)
+	})
+	tt.Equal(t, 1, len(got))
+	tt.Equal(t, MouseHold, got[0].Kind)
 
 	// Wheel: single MouseWheel on press, release dropped.
 	got = captureEvents(func() {
@@ -189,9 +198,10 @@ func TestX11OnButton(t *testing.T) {
 // TestX11OnMotion verifies motion with a held button is a MouseDrag and the
 // modifier mask is carried.
 func TestX11OnMotion(t *testing.T) {
+	st := &x11State{}
 	got := captureEvents(func() {
-		x11OnMotion(xEvent(xproto.MotionNotify, 0, 3, 4, 0))
-		x11OnMotion(xEvent(xproto.MotionNotify, 0, 5, 6, xproto.ButtonMask1|xControlMask))
+		x11OnMotion(st, xEvent(xproto.MotionNotify, 0, 3, 4, 0))
+		x11OnMotion(st, xEvent(xproto.MotionNotify, 0, 5, 6, xproto.ButtonMask1|xControlMask))
 	})
 	tt.Equal(t, 2, len(got))
 	tt.Equal(t, MouseMove, got[0].Kind)
