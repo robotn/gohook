@@ -14,6 +14,7 @@ package hook
 
 import (
 	"testing"
+	"time"
 
 	"github.com/vcaesar/tt"
 )
@@ -95,8 +96,11 @@ func TestWinXButton(t *testing.T) {
 }
 
 // captureEvents runs fn with a fresh event channel and returns everything it
-// sent.
+// sent. It first ends any hook session left running (e.g. TestAdd calls
+// Start without End), whose real hook events would otherwise leak in.
 func captureEvents(fn func()) []Event {
+	End()
+
 	ev = make(chan Event, 16)
 	asyncon = true
 	defer func() { asyncon = false }()
@@ -144,4 +148,23 @@ func TestWinButtonRelease(t *testing.T) {
 	tt.Equal(t, uint16(1), got[2].Clicks)
 	tt.Equal(t, MouseDown, got[3].Kind)
 	tt.Equal(t, MouseHold, got[4].Kind) // moved: no click
+}
+
+// TestWinStaleSession verifies a winLoop whose session was ended before it
+// went live does not go live once asyncon is set again by a later session:
+// no HookEnabled leaks into the new channel and no hook stays installed.
+func TestWinStaleSession(t *testing.T) {
+	Start()
+	End(0) // usually lands before winLoop has installed its hooks
+
+	// A new session's channel; not captureEvents, whose End would re-close ev.
+	ev = make(chan Event, 16)
+	asyncon = true
+	time.Sleep(300 * time.Millisecond)
+	asyncon = false
+	tt.Equal(t, 0, len(ev))
+
+	lck.Lock()
+	defer lck.Unlock()
+	tt.Equal(t, true, win == nil)
 }

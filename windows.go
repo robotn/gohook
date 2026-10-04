@@ -197,6 +197,10 @@ type winState struct {
 var (
 	win *winState
 
+	// winSession identifies the current Start() call; Start and End bump it
+	// so a winLoop that outlived its session never goes live. Guarded by lck.
+	winSession uint64
+
 	// Persistent C-callable trampolines for the two hooks. Allocated once via
 	// NewCallback (which never frees) so they are created lazily and reused.
 	keyboardCallback uintptr
@@ -225,7 +229,12 @@ func Start(tm ...int) chan Event {
 	ev = make(chan Event, 1024)
 	asyncon = true
 
-	go winLoop()
+	lck.Lock()
+	winSession++
+	sess := winSession
+	lck.Unlock()
+
+	go winLoop(sess)
 
 	return ev
 }
@@ -241,6 +250,7 @@ func End(tm ...int) {
 	asyncon = false
 
 	lck.Lock()
+	winSession++
 	tid := uint32(0)
 	if win != nil {
 		tid = win.threadID
@@ -277,8 +287,8 @@ func addEvent(key string) int {
 func StopEvent() {}
 
 // winLoop installs the hooks on a pinned OS thread and pumps the message loop
-// until End() posts WM_QUIT.
-func winLoop() {
+// until End() posts WM_QUIT. sess is the Start() session it belongs to.
+func winLoop(sess uint64) {
 	// LL hooks are delivered on the installing thread's message queue, so this
 	// goroutine must stay on one OS thread for the whole session.
 	runtime.LockOSThread()
@@ -305,19 +315,24 @@ func winLoop() {
 		return
 	}
 
-	// Publish the state and re-check asyncon under the same lock End() uses,
-	// so an End() that ran before this point is not missed (otherwise the LL
-	// hooks would stay installed on a thread nobody ever posts WM_QUIT to).
+	// Publish the state only if this is still the current session, under the
+	// same lock End() uses, so an End() that ran before this point is not
+	// missed. asyncon alone is not enough: a later Start() sets it again,
+	// which would leave this stale loop's hooks installed on a thread nobody
+	// posts WM_QUIT to, and its events leaking into the new session.
+	st := &winState{keyboardHook: kbHook, mouseHook: msHook, threadID: uint32(tid)}
 	lck.Lock()
-	win = &winState{keyboardHook: kbHook, mouseHook: msHook, threadID: uint32(tid)}
-	live := asyncon
+	live := sess == winSession
+	if live {
+		win = st
+	}
 	lck.Unlock()
 
-	// Reset the per-session modifier/click bookkeeping.
-	winModifiers = 0
-	clickCount, clickTime, clickButton = 0, 0, 0
-
 	if live {
+		// Reset the per-session modifier/click bookkeeping.
+		winModifiers = 0
+		clickCount, clickTime, clickButton = 0, 0, 0
+
 		send(Event{Kind: HookEnabled})
 
 		// Windows has no native "hook start" callback; the loop blocks here
@@ -334,8 +349,11 @@ func winLoop() {
 	procUnhookWindowsHook.Call(kbHook)
 	procUnhookWindowsHook.Call(msHook)
 
+	// Only clear our own state, not that of a newer session.
 	lck.Lock()
-	win = nil
+	if win == st {
+		win = nil
+	}
 	lck.Unlock()
 }
 
