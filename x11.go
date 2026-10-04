@@ -69,6 +69,9 @@ const (
 	xControlMask = 1 << 2
 	xMod1Mask    = 1 << 3 // typically Alt
 	xMod4Mask    = 1 << 6 // typically Super/Meta
+
+	// Button1Mask..Button5Mask: any held pointer button.
+	xButtonMask = 0x1f << 8
 )
 
 // gohook virtual modifier masks (mirrors hook/iohook.h MASK_* for Event.Mask).
@@ -101,9 +104,29 @@ type x11State struct {
 	// per-X-keycode pressed state, used to distinguish KeyDown vs KeyHold
 	// (X delivers auto-repeat as additional KeyPress events).
 	down map[byte]bool
+
+	// held, undragged buttons, used to emit MouseUp (libuiohook
+	// EVENT_MOUSE_CLICKED) only for a release without an intervening drag.
+	clicks clickTracker
 }
 
 var xst *x11State
+
+// x11Release detaches st from the package state and tears it down, but only
+// if it is still the live session. Both End() and x11Loop call it, so
+// whichever runs first owns the teardown and the other becomes a no-op.
+func x11Release(st *x11State) {
+	lck.Lock()
+	owned := xst == st
+	if owned {
+		xst = nil
+	}
+	lck.Unlock()
+
+	if owned {
+		x11Teardown(st)
+	}
+}
 
 // Start adds the X11 RECORD listener and returns the event channel.
 //
@@ -114,9 +137,10 @@ func Start(tm ...int) chan Event {
 	_ = tm
 
 	ev = make(chan Event, 1024)
-	asyncon = true
+	asyncon.Store(true)
 
-	go x11Loop()
+	sess, done := beginSession()
+	go x11Loop(sess, done)
 
 	return ev
 }
@@ -128,17 +152,18 @@ func End(tm ...int) {
 		tm1 = tm[0]
 	}
 
-	asyncon = false
+	asyncon.Store(false)
+	done := endSession()
 
 	lck.Lock()
 	st := xst
-	xst = nil
 	lck.Unlock()
 
 	if st != nil {
-		x11Teardown(st)
+		x11Release(st)
 	}
 
+	waitSession(done, tm1)
 	time.Sleep(time.Millisecond * time.Duration(tm1))
 
 	for len(ev) != 0 {
@@ -164,24 +189,27 @@ func StopEvent() {}
 
 // x11Loop opens the control connection, creates the RECORD context, opens the
 // raw data connection and pumps the intercepted-event stream until End() tears
-// the connections down.
-func x11Loop() {
+// the connections down. sess is the Start() session it belongs to; done is
+// closed once the connections are released.
+func x11Loop(sess uint64, done chan struct{}) {
+	defer close(done)
+
 	ctrl, err := xgb.NewConn()
 	if err != nil {
 		// No X server / not an X session: report disabled and bail.
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		return
 	}
 
 	if err := record.Init(ctrl); err != nil {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		ctrl.Close()
 		return
 	}
 
 	ctx, err := record.NewContextId(ctrl)
 	if err != nil {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		ctrl.Close()
 		return
 	}
@@ -195,7 +223,7 @@ func x11Loop() {
 
 	if err := record.CreateContextChecked(ctrl, ctx, 0,
 		uint32(len(specs)), uint32(len(ranges)), specs, ranges).Check(); err != nil {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		ctrl.Close()
 		return
 	}
@@ -205,26 +233,41 @@ func x11Loop() {
 
 	data, err := x11DialAuth()
 	if err != nil {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		record.FreeContext(ctrl, ctx)
 		ctrl.Close()
 		return
 	}
 	st.data = data
 
+	// Publish the state only if this is still the current session, under the
+	// same lock End() uses, so an End() that ran before this point is not
+	// missed and a later Start() cannot revive this stale loop.
 	lck.Lock()
-	xst = st
+	live := sess == sessionID
+	if live {
+		xst = st
+	}
 	lck.Unlock()
 
-	if err := x11EnableContext(data, recordOpcode(ctrl), ctx); err != nil {
-		send(Event{Kind: HookDisabled})
+	if !live {
 		x11Teardown(st)
 		return
 	}
 
-	send(Event{Kind: HookEnabled})
+	if err := x11EnableContext(data, recordOpcode(ctrl), ctx); err != nil {
+		sendFor(sess, Event{Kind: HookDisabled})
+		x11Release(st)
+		return
+	}
 
-	x11ReadLoop(st)
+	sendFor(sess, Event{Kind: HookEnabled})
+
+	x11ReadLoop(sess, st)
+
+	// Reached on End() (already released, no-op) or when the server went
+	// away, in which case the connections are still ours to close.
+	x11Release(st)
 }
 
 // x11Teardown disables/frees the record context (over the control connection)
@@ -291,10 +334,10 @@ func x11EnableContext(conn net.Conn, opcode byte, ctx record.Context) error {
 
 // x11ReadLoop reads RECORD reply records off the raw data connection and
 // dispatches the device events they carry. It returns when the connection is
-// closed (by End()) or a read fails.
-func x11ReadLoop(st *x11State) {
+// closed (by End()), a read fails or sess is no longer the live session.
+func x11ReadLoop(sess uint64, st *x11State) {
 	header := make([]byte, 32)
-	for asyncon {
+	for isCurrent(sess) {
 		if _, err := io.ReadFull(st.data, header); err != nil {
 			return
 		}
@@ -340,7 +383,7 @@ func x11Dispatch(st *x11State, data []byte) {
 		case xproto.ButtonRelease:
 			x11OnButton(st, buf, false)
 		case xproto.MotionNotify:
-			x11OnMotion(buf)
+			x11OnMotion(st, buf)
 		}
 	}
 }
@@ -418,27 +461,58 @@ func x11OnButton(st *x11State, buf []byte, press bool) {
 
 	kind := uint8(MouseDown)
 	if !press {
-		kind = MouseUp
+		kind = MouseHold // libuiohook EVENT_MOUSE_RELEASED
 	}
 
-	send(Event{
+	e := Event{
 		Kind:   kind,
 		Button: x11Button(btn),
 		Clicks: 1,
 		X:      x,
 		Y:      y,
 		Mask:   mask,
-	})
+	}
+
+	lck.Lock()
+	clicked := false
+	if press {
+		st.clicks.press(e.Button)
+	} else {
+		clicked = st.clicks.release(e.Button)
+	}
+	lck.Unlock()
+
+	send(e)
+
+	// CGo parity: releasing an undragged press is also a "click"
+	// (EVENT_MOUSE_CLICKED == MouseUp); hook/x11/hook_c.h suppresses it
+	// after a drag.
+	if clicked {
+		e.Kind = MouseUp
+		send(e)
+	}
 }
 
-// x11OnMotion emits MouseMove using the absolute root-window coordinates that
-// the recorded core motion event carries.
-func x11OnMotion(buf []byte) {
+// x11OnMotion emits MouseMove (or MouseDrag while a button is held) using the
+// absolute root-window coordinates that the recorded core motion event
+// carries. A drag cancels the pending click of the held buttons.
+func x11OnMotion(st *x11State, buf []byte) {
 	me := xproto.MotionNotifyEventNew(buf).(xproto.MotionNotifyEvent)
-	send(Event{Kind: MouseMove, X: me.RootX, Y: me.RootY})
+
+	kind := uint8(MouseMove)
+	if me.State&xButtonMask != 0 {
+		kind = MouseDrag
+		lck.Lock()
+		st.clicks.drag()
+		lck.Unlock()
+	}
+
+	send(Event{Kind: kind, X: me.RootX, Y: me.RootY, Mask: maskFromState(me.State)})
 }
 
-// x11Button maps an X core button number to a gohook MouseMap code.
+// x11Button maps an X core button number to a gohook MouseMap code. X reports
+// the side/extra (back/forward) buttons as 8/9, which gohook numbers 4/5 as
+// on the other backends.
 func x11Button(btn byte) uint16 {
 	switch btn {
 	case 1:
@@ -447,6 +521,10 @@ func x11Button(btn byte) uint16 {
 		return MouseMap["center"] // X middle button
 	case 3:
 		return MouseMap["right"]
+	case 8:
+		return 4
+	case 9:
+		return 5
 	default:
 		return uint16(btn)
 	}
@@ -552,7 +630,7 @@ func maskFromState(state uint16) uint16 {
 // buffer is full. The recover guards the small shutdown window where End() may
 // have closed ev while a read is still in flight.
 func send(e Event) {
-	if !asyncon {
+	if !asyncon.Load() {
 		return
 	}
 	defer func() { _ = recover() }() // ev closed by End(): drop silently

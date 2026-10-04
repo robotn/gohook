@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -75,8 +76,9 @@ type Event struct {
 }
 
 var (
-	ev      = make(chan Event, 1024)
-	asyncon = false
+	ev = make(chan Event, 1024)
+	// asyncon is written by Start/End and read by the hook threads.
+	asyncon atomic.Bool
 
 	lck sync.RWMutex
 
@@ -252,7 +254,7 @@ func Process(evChan <-chan Event) (out chan bool) {
 			}
 
 			for _, v := range events[ev.Kind] {
-				if !asyncon {
+				if !asyncon.Load() {
 					break
 				}
 				if keyRegistered(ev.Keycode, keys[v]) {

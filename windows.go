@@ -223,9 +223,10 @@ func Start(tm ...int) chan Event {
 	_ = tm
 
 	ev = make(chan Event, 1024)
-	asyncon = true
+	asyncon.Store(true)
 
-	go winLoop()
+	sess, done := beginSession()
+	go winLoop(sess, done)
 
 	return ev
 }
@@ -238,7 +239,8 @@ func End(tm ...int) {
 		tm1 = tm[0]
 	}
 
-	asyncon = false
+	asyncon.Store(false)
+	done := endSession()
 
 	lck.Lock()
 	tid := uint32(0)
@@ -248,11 +250,13 @@ func End(tm ...int) {
 	lck.Unlock()
 
 	// Posting WM_QUIT unblocks GetMessage on the hook thread, which then
-	// unhooks and returns.
+	// unhooks and returns. A loop still in setup sees its session ended and
+	// never goes live.
 	if tid != 0 {
 		procPostThreadMessage.Call(uintptr(tid), wmQuit, 0, 0)
 	}
 
+	waitSession(done, tm1)
 	time.Sleep(time.Millisecond * time.Duration(tm1))
 
 	for len(ev) != 0 {
@@ -277,8 +281,11 @@ func addEvent(key string) int {
 func StopEvent() {}
 
 // winLoop installs the hooks on a pinned OS thread and pumps the message loop
-// until End() posts WM_QUIT.
-func winLoop() {
+// until End() posts WM_QUIT. sess is the Start() session it belongs to; done
+// is closed once the hooks are removed.
+func winLoop(sess uint64, done chan struct{}) {
+	defer close(done)
+
 	// LL hooks are delivered on the installing thread's message queue, so this
 	// goroutine must stay on one OS thread for the whole session.
 	runtime.LockOSThread()
@@ -301,42 +308,55 @@ func winLoop() {
 		if msHook != 0 {
 			procUnhookWindowsHook.Call(msHook)
 		}
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		return
 	}
 
+	// Publish the state only if this is still the current session, under the
+	// same lock End() uses, so an End() that ran before this point is not
+	// missed and a later Start() cannot revive this stale loop.
+	st := &winState{keyboardHook: kbHook, mouseHook: msHook, threadID: uint32(tid)}
 	lck.Lock()
-	win = &winState{keyboardHook: kbHook, mouseHook: msHook, threadID: uint32(tid)}
+	live := sess == sessionID
+	if live {
+		win = st
+	}
 	lck.Unlock()
 
-	// Reset the per-session modifier/click bookkeeping.
-	winModifiers = 0
-	clickCount, clickTime, clickButton = 0, 0, 0
+	if live {
+		// Reset the per-session modifier/click bookkeeping.
+		winModifiers = 0
+		clickCount, clickTime, clickButton = 0, 0, 0
 
-	send(Event{Kind: HookEnabled})
+		send(Event{Kind: HookEnabled})
 
-	// Windows has no native "hook start" callback; the loop blocks here until
-	// WM_QUIT (posted by End()) or an error.
-	var m msg
-	for asyncon {
-		ret, _, _ := procGetMessage.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
-		if int32(ret) <= 0 { // 0 == WM_QUIT, -1 == error
-			break
+		// Windows has no native "hook start" callback; the loop blocks here
+		// until WM_QUIT (posted by End()) or an error.
+		var m msg
+		for {
+			ret, _, _ := procGetMessage.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
+			if int32(ret) <= 0 { // 0 == WM_QUIT, -1 == error
+				break
+			}
 		}
 	}
 
 	procUnhookWindowsHook.Call(kbHook)
 	procUnhookWindowsHook.Call(msHook)
 
+	// Only clear our own state, not that of a newer session.
 	lck.Lock()
-	win = nil
+	if win == st {
+		win = nil
+	}
 	lck.Unlock()
 }
 
 // keyboardProc is the WH_KEYBOARD_LL callback. NewCallback delivers lParam as
 // the typed struct pointer directly, which keeps the (vet-flagged)
-// uintptr->unsafe.Pointer conversion out of our code.
-func keyboardProc(nCode int, wParam uintptr, kb *kbdLLHookStruct) uintptr {
+// uintptr->unsafe.Pointer conversion out of our code. nCode is a C int, so it
+// is declared int32: the upper half of the register is not guaranteed clean.
+func keyboardProc(nCode int32, wParam uintptr, kb *kbdLLHookStruct) uintptr {
 	if nCode >= 0 && kb != nil {
 		switch wParam {
 		case wmKeyDown, wmSysKeyDown:
@@ -346,7 +366,7 @@ func keyboardProc(nCode int, wParam uintptr, kb *kbdLLHookStruct) uintptr {
 		}
 	}
 
-	ret, _, _ := procCallNextHookEx.Call(0, uintptr(nCode), wParam, uintptr(unsafe.Pointer(kb)))
+	ret, _, _ := procCallNextHookEx.Call(0, uintptr(int(nCode)), wParam, uintptr(unsafe.Pointer(kb)))
 	return ret
 }
 
@@ -393,7 +413,7 @@ func processKeyReleased(kb *kbdLLHookStruct) {
 }
 
 // mouseProc is the WH_MOUSE_LL callback (see keyboardProc on the pointer arg).
-func mouseProc(nCode int, wParam uintptr, ms *msLLHookStruct) uintptr {
+func mouseProc(nCode int32, wParam uintptr, ms *msLLHookStruct) uintptr {
 	if nCode >= 0 && ms != nil {
 		switch wParam {
 		case wmLButtonDown:
@@ -427,7 +447,7 @@ func mouseProc(nCode int, wParam uintptr, ms *msLLHookStruct) uintptr {
 		}
 	}
 
-	ret, _, _ := procCallNextHookEx.Call(0, uintptr(nCode), wParam, uintptr(unsafe.Pointer(ms)))
+	ret, _, _ := procCallNextHookEx.Call(0, uintptr(int(nCode)), wParam, uintptr(unsafe.Pointer(ms)))
 	return ret
 }
 
@@ -664,7 +684,7 @@ func wheelAmount() uint16 {
 // torn down by Windows). The recover guards the small shutdown window where
 // End() may have closed ev while a callback is still in flight.
 func send(e Event) {
-	if !asyncon {
+	if !asyncon.Load() {
 		return
 	}
 	defer func() { _ = recover() }() // ev closed by End(): drop silently

@@ -49,10 +49,10 @@ func Start(tm ...int) chan Event {
 		tm1 = tm[0]
 	}
 
-	asyncon = true
+	asyncon.Store(true)
 	go func() {
 		for {
-			if !asyncon {
+			if !asyncon.Load() {
 				return
 			}
 
@@ -72,7 +72,7 @@ func End(tm ...int) {
 		tm1 = tm[0]
 	}
 
-	asyncon = false
+	asyncon.Store(false)
 	C.endPoll()
 	C.stop_event()
 	time.Sleep(time.Millisecond * time.Duration(tm1))

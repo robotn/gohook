@@ -77,11 +77,35 @@ type waylandState struct {
 	keyboard *client.Keyboard
 	pointer  *client.Pointer
 
-	// last known pointer position within the focused surface.
-	x, y int16
+	// last known pointer position within the focused surface, and the
+	// last known pointer position within the focused surface, and the held,
+	// undragged buttons (for the MouseUp "clicked" event).
+	x, y   int16
+	clicks clickTracker
 }
 
 var wl *waylandState
+
+// waylandRelease detaches st from the package state and closes the
+// connection, but only if it is still the live session. Both End() and
+// waylandLoop call it, so whichever runs first owns the teardown and the
+// other becomes a no-op. Closing the context unblocks the dispatch loop's
+// socket read.
+func waylandRelease(st *waylandState) {
+	lck.Lock()
+	owned := wl == st
+	if owned {
+		wl = nil
+	}
+	lck.Unlock()
+
+	if owned && st.display != nil {
+		if ctx := st.display.Context(); ctx != nil {
+			// Best-effort teardown; the connection may already be gone.
+			_ = ctx.Close()
+		}
+	}
+}
 
 // Start adds the Wayland input listener and returns the event channel.
 //
@@ -92,9 +116,10 @@ func Start(tm ...int) chan Event {
 	_ = tm
 
 	ev = make(chan Event, 1024)
-	asyncon = true
+	asyncon.Store(true)
 
-	go waylandLoop()
+	sess, done := beginSession()
+	go waylandLoop(sess, done)
 
 	return ev
 }
@@ -108,23 +133,18 @@ func End(tm ...int) {
 		tm1 = tm[0]
 	}
 
-	asyncon = false
+	asyncon.Store(false)
+	done := endSession()
 
 	lck.Lock()
 	st := wl
-	wl = nil
 	lck.Unlock()
 
-	// Closing the context unblocks the dispatch loop's socket read.
-	if st != nil && st.display != nil {
-		if ctx := st.display.Context(); ctx != nil {
-			if err := ctx.Close(); err != nil {
-				// Best-effort teardown; the connection may already be gone.
-				_ = err
-			}
-		}
+	if st != nil {
+		waylandRelease(st)
 	}
 
+	waitSession(done, tm1)
 	time.Sleep(time.Millisecond * time.Duration(tm1))
 
 	for len(ev) != 0 {
@@ -149,26 +169,41 @@ func addEvent(key string) int {
 func StopEvent() {}
 
 // waylandLoop connects to the compositor, wires up seat input handlers and
-// pumps the dispatch loop until End() closes the connection.
-func waylandLoop() {
+// pumps the dispatch loop until End() closes the connection. sess is the
+// Start() session it belongs to; done is closed once the loop exits.
+func waylandLoop(sess uint64, done chan struct{}) {
+	defer close(done)
+
 	display, err := client.Connect("")
 	if err != nil {
 		// No compositor / not a Wayland session: report disabled and bail.
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		return
 	}
 
 	registry, err := display.GetRegistry()
 	if err != nil {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
 		_ = display.Context().Close()
 		return
 	}
 
 	st := &waylandState{display: display}
+
+	// Publish the state only if this is still the current session, under the
+	// same lock End() uses, so an End() that ran before this point is not
+	// missed and a later Start() cannot revive this stale loop.
 	lck.Lock()
-	wl = st
+	live := sess == sessionID
+	if live {
+		wl = st
+	}
 	lck.Unlock()
+
+	if !live {
+		_ = display.Context().Close()
+		return
+	}
 
 	registry.SetGlobalHandler(func(e client.RegistryGlobalEvent) {
 		if e.Interface != client.SeatInterfaceName {
@@ -192,22 +227,27 @@ func waylandLoop() {
 	// First roundtrip surfaces the globals (and binds the seat); the second
 	// delivers the seat capabilities so keyboard/pointer get created.
 	if err := display.Roundtrip(); err != nil {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
+		waylandRelease(st)
 		return
 	}
 	if err := display.Roundtrip(); err != nil {
-		send(Event{Kind: HookDisabled})
+		sendFor(sess, Event{Kind: HookDisabled})
+		waylandRelease(st)
 		return
 	}
 
-	send(Event{Kind: HookEnabled})
+	sendFor(sess, Event{Kind: HookEnabled})
 
-	for asyncon {
+	for isCurrent(sess) {
 		if err := display.Context().Dispatch(); err != nil {
 			// Closed by End() or the compositor went away.
 			break
 		}
 	}
+
+	// No-op after End(); closes the connection if the compositor went away.
+	waylandRelease(st)
 }
 
 // bindSeatCapabilities lazily creates the keyboard/pointer objects advertised
@@ -265,28 +305,47 @@ func attachPointer(st *waylandState, p *client.Pointer) {
 		st.x = int16(e.SurfaceX)
 		st.y = int16(e.SurfaceY)
 		x, y := st.x, st.y
+		// Moving with a button held is a drag: no click on its release.
+		st.clicks.drag()
 		lck.Unlock()
 
 		send(Event{Kind: MouseMove, X: x, Y: y})
 	})
 
 	p.SetButtonHandler(func(e client.PointerButtonEvent) {
+		press := e.State == uint32(client.PointerButtonStatePressed)
+		btn := mouseButton(e.Button)
+
 		lck.Lock()
 		x, y := st.x, st.y
+		clicked := false
+		if press {
+			st.clicks.press(btn)
+		} else {
+			clicked = st.clicks.release(btn)
+		}
 		lck.Unlock()
 
-		kind := MouseUp
-		if e.State == uint32(client.PointerButtonStatePressed) {
+		kind := uint8(MouseHold) // libuiohook EVENT_MOUSE_RELEASED
+		if press {
 			kind = MouseDown
 		}
 
-		send(Event{
-			Kind:   uint8(kind),
-			Button: mouseButton(e.Button),
+		ev := Event{
+			Kind:   kind,
+			Button: btn,
 			Clicks: 1,
 			X:      x,
 			Y:      y,
-		})
+		}
+		send(ev)
+
+		// CGo parity: releasing an undragged press is also a "click"
+		// (EVENT_MOUSE_CLICKED == MouseUp).
+		if clicked {
+			ev.Kind = MouseUp
+			send(ev)
+		}
 	})
 
 	p.SetAxisHandler(func(e client.PointerAxisEvent) {
@@ -378,7 +437,7 @@ func mouseButton(code uint32) uint16 {
 // keeping up and the buffer is full. The recover guards the small shutdown
 // window where End() may have closed ev while a handler is still in flight.
 func send(e Event) {
-	if !asyncon {
+	if !asyncon.Load() {
 		return
 	}
 	defer func() { _ = recover() }() // ev closed by End(): drop silently
