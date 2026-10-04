@@ -54,22 +54,22 @@ var (
 		50: "`",
 		51: "backspace",
 		53: "esc",
-		54: "cmdr", // right cmdnd, apps
-		55: "cmd",  // left cmdnd
+		54: "cmdr", // right command
+		55: "cmd",  // left command
 		56: "shift",
 		60: "shiftr",
-		57: "caps", // caps and lock
+		57: "caps", // caps lock
 		58: "alt",  // left option
 		// 59:  "control",
 		59:  "ctrl",
 		62:  "ctrlr",
-		61:  "altr", // undefined in `keytoraw` map, right option
+		61:  "altr", // right option
 		65:  "decimal_point",
 		67:  "multiply",
 		69:  "add",
 		71:  "clear",
 		75:  "divide",
-		76:  "num_enter", // undefined in `keytoraw` map
+		76:  "num_enter",
 		78:  "subtract",
 		79:  "f18", // kVK_F18
 		80:  "f19", // kVK_F19
@@ -108,7 +108,7 @@ var (
 		124: "right",
 		125: "down",
 		126: "up",
-		179: "fn", // undefined in `keytoraw` map
+		179: "fn",
 	}
 
 	keyToRawDarwin = map[string]uint16{
@@ -164,13 +164,13 @@ var (
 		"`":             50,
 		"backspace":     51,
 		"esc":           53,
-		"cmdr":          54, // right cmdnd
-		"cmd":           55, // left cmdnd, cmd
+		"cmdr":          54, // right command
+		"cmd":           55, // left command
 		"shift":         56,
 		"shiftr":        60,
 		"caps":          57,
 		"alt":           58, // left option
-		"altr":          61, // undefined in `keytoraw` map, right option
+		"altr":          61, // right option
 		"ctrl":          59,
 		"ctrlr":         62,
 		"decimal_point": 65,
@@ -178,7 +178,7 @@ var (
 		"add":           69,
 		"clear":         71,
 		"divide":        75,
-		"num_enter":     76, // undefined in `keytoraw` map
+		"num_enter":     76,
 		"subtract":      78,
 		"f18":           79, // kVK_F18
 		"f19":           80, // kVK_F19
@@ -217,7 +217,7 @@ var (
 		"right":         124,
 		"down":          125,
 		"up":            126,
-		"fn":            179, // undefined in `keytoraw` map
+		"fn":            179,
 	}
 
 	raw2keyWin = map[uint16]string{
@@ -342,7 +342,7 @@ var (
 		133: "f22",
 		134: "f23",
 		135: "f24",
-		// 179:   "fn",
+		// fn
 		144:   "numlock",
 		145:   "scroll_lock",
 		160:   "shift",
@@ -543,7 +543,7 @@ var (
 		"next":                    176,
 		"previous":                177,
 		"stop":                    178,
-		"play":                    179, // /pause
+		"play":                    179, // play/pause
 		"email":                   180,
 		"mute_firefox":            181,
 		"decrease_volume_firefox": 182,
@@ -780,8 +780,8 @@ var (
 		"fn_f10":       121,
 		"fn_f12":       123,
 		"printscreen":  44,
-		"scrolllock":   135, // Duplicate with Fn + F7
-		"pause":        19,  // Duplicate with Fn + F6
+		"scrolllock":   135, // Fn + F7
+		"pause":        19,  // Fn + F6
 		"insert":       45,
 		"delete":       46,
 		"home":         36,
