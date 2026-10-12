@@ -12,6 +12,8 @@
 _obj
 _test
 v0
+.v0
+.codg
 
 # Architecture specific extensions/prefixes
 *.[568vq]

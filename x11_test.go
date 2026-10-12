@@ -13,6 +13,7 @@
 package hook
 
 import (
+	"net"
 	"testing"
 
 	"github.com/jezek/xgb"
@@ -251,4 +252,41 @@ func TestX11Release(t *testing.T) {
 	lck.Unlock()
 
 	x11Release(st) // no-op, must not panic on nil connections
+}
+
+// xReply wraps recorded events in a RECORD reply (category FromServer).
+func xReply(events ...[]byte) []byte {
+	head := make([]byte, 32)
+	head[0] = 1 // reply
+	xgb.Put32(head[4:], uint32(len(events)*32/4))
+	for _, e := range events {
+		head = append(head, e...)
+	}
+	return head
+}
+
+// TestX11ReadLoop verifies the reused reply buffer: a shorter reply after a
+// longer one dispatches only its own events, and the loop returns once the
+// data connection is closed.
+func TestX11ReadLoop(t *testing.T) {
+	r, w := net.Pipe()
+	st := &x11State{data: r}
+
+	got := captureEvents(func() {
+		sess, _ := beginSession()
+		defer endSession()
+
+		go func() {
+			_, _ = w.Write(xReply(
+				xEvent(xproto.MotionNotify, 0, 1, 1, 0),
+				xEvent(xproto.MotionNotify, 0, 2, 2, 0)))
+			_, _ = w.Write(xReply(xEvent(xproto.MotionNotify, 0, 3, 3, 0)))
+			w.Close()
+		}()
+		x11ReadLoop(sess, st)
+	})
+	tt.Equal(t, 3, len(got))
+	tt.Equal(t, int16(1), got[0].X)
+	tt.Equal(t, int16(2), got[1].X)
+	tt.Equal(t, int16(3), got[2].X)
 }

@@ -132,8 +132,13 @@ const (
 	vkFunction uint16 = 63
 )
 
-// Run-loop slice for the poll in darwinLoop (see there for why we poll).
-const runLoopSlice = 0.25
+// runLoopSlice is how long darwinLoop blocks in one CFRunLoopRunInMode
+// call. End wakes the loop with CFRunLoopStop, so this is only a safety
+// net; a short slice woke the idle process 4 times a second.
+const runLoopSlice = 60.0
+
+// stopRetry is how often End repeats CFRunLoopStop until the loop exits.
+const stopRetry = 10 * time.Millisecond
 
 // cgPoint mirrors the C CGPoint struct (two CGFloat == float64). purego
 // returns it by value from CGEventGetLocation (darwin amd64/arm64).
@@ -276,11 +281,12 @@ func End(tm ...int) {
 	st := mac
 	lck.Unlock()
 
-	// Stopping the run loop wakes darwinLoop promptly; the loop also polls
-	// its session, so a stop that lands before the loop is running is not
-	// lost. CFRunLoopStop is thread-safe.
-	if st != nil && st.runLoop != 0 {
-		cfRunLoopStop(st.runLoop)
+	// Stopping the run loop wakes darwinLoop promptly. CFRunLoopStop is
+	// thread-safe but lost when the loop is not running yet, so repeat it
+	// until the loop exits. A loop not yet published (st == nil) sees the
+	// ended session and exits on its own.
+	if st != nil && st.runLoop != 0 && done != nil {
+		stopLoop(st.runLoop, done, tm1)
 	}
 
 	waitSession(done, tm1)
@@ -292,6 +298,23 @@ func End(tm ...int) {
 	close(ev)
 
 	resetState()
+}
+
+// stopLoop calls CFRunLoopStop on rl until done is closed, bounded like
+// waitSession.
+func stopLoop(rl uintptr, done chan struct{}, tm int) {
+	deadline := time.Now().Add(max(time.Duration(tm)*time.Millisecond, time.Second))
+	for {
+		cfRunLoopStop(rl)
+		select {
+		case <-done:
+			return
+		case <-time.After(stopRetry):
+		}
+		if time.Now().After(deadline) {
+			return
+		}
+	}
 }
 
 // addEvent: the single-shot *blocking* listener (AddEvent/StopEvent) is a
@@ -363,9 +386,8 @@ func darwinLoop(sess uint64, done chan struct{}) {
 		send(Event{Kind: HookEnabled})
 	}
 
-	// CFRunLoopStop only affects a loop that is already running, so pump in
-	// short slices and re-check the session instead of blocking in
-	// CFRunLoopRun.
+	// End stops the loop with CFRunLoopStop (retried, see stopLoop); the
+	// session is re-checked after every return.
 	for live && isCurrent(sess) {
 		cfRunLoopRunInMode(kCFRunLoopDefaultMode, runLoopSlice, false)
 	}

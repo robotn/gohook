@@ -150,6 +150,24 @@ func TestWinButtonRelease(t *testing.T) {
 	tt.Equal(t, MouseHold, got[4].Kind) // moved: no click
 }
 
+// TestWinStartEnd verifies End stops a live loop promptly via WM_QUIT (the
+// thread's message queue exists before its id is published) instead of
+// waiting out waitSession's 1s timeout.
+func TestWinStartEnd(t *testing.T) {
+	c := Start()
+	if e := <-c; e.Kind != HookEnabled {
+		End(0)
+		t.Skip("low-level hooks unavailable")
+	}
+
+	begin := time.Now()
+	End(0)
+	tt.Equal(t, true, time.Since(begin) < 500*time.Millisecond)
+
+	_, open := <-c
+	tt.Equal(t, false, open)
+}
+
 // TestWinStaleSession verifies a winLoop whose session was ended before it
 // went live does not go live once asyncon is set again by a later session:
 // no HookEnabled leaks into the new channel and no hook stays installed.

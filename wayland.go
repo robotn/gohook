@@ -41,6 +41,7 @@
 package hook
 
 import (
+	"errors"
 	"time"
 	"unicode/utf8"
 
@@ -240,14 +241,20 @@ func waylandLoop(sess uint64, done chan struct{}) {
 	sendFor(sess, Event{Kind: HookEnabled})
 
 	for isCurrent(sess) {
-		if err := display.Context().Dispatch(); err != nil {
-			// Closed by End() or the compositor went away.
+		if dispatchFatal(display.Context().Dispatch()) {
 			break
 		}
 	}
 
 	// No-op after End(); closes the connection if the compositor went away.
 	waylandRelease(st)
+}
+
+// dispatchFatal reports whether a Dispatch error ends the loop: only a failed
+// socket read (closed by End() or the compositor went away) does. A message
+// for an unknown or unsupported object is skipped, not a reason to stop.
+func dispatchFatal(err error) bool {
+	return errors.Is(err, client.ErrDispatchUnableToReadMsg)
 }
 
 // bindSeatCapabilities lazily creates the keyboard/pointer objects advertised

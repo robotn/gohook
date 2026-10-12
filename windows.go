@@ -38,6 +38,7 @@ package hook
 
 import (
 	"runtime"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -53,6 +54,9 @@ const (
 // Window messages (subset relevant to the LL hooks).
 const (
 	wmQuit = 0x0012
+	wmUser = 0x0400
+
+	pmNoRemove = 0x0000
 
 	wmKeyDown    = 0x0100
 	wmKeyUp      = 0x0101
@@ -176,6 +180,7 @@ var (
 	procUnhookWindowsHook  = user32.NewProc("UnhookWindowsHookEx")
 	procCallNextHookEx     = user32.NewProc("CallNextHookEx")
 	procGetMessage         = user32.NewProc("GetMessageW")
+	procPeekMessage        = user32.NewProc("PeekMessageW")
 	procPostThreadMessage  = user32.NewProc("PostThreadMessageW")
 	procToUnicodeEx        = user32.NewProc("ToUnicodeEx")
 	procGetKeyboardLayout  = user32.NewProc("GetKeyboardLayout")
@@ -198,9 +203,11 @@ var (
 	win *winState
 
 	// Persistent C-callable trampolines for the two hooks. Allocated once via
-	// NewCallback (which never frees) so they are created lazily and reused.
+	// NewCallback (which never frees, and has a fixed slot limit) so they are
+	// created lazily and reused; the Once keeps overlapping loops race-free.
 	keyboardCallback uintptr
 	mouseCallback    uintptr
+	callbackOnce     sync.Once
 
 	// Hook-thread-local state (only touched on the single locked OS thread that
 	// runs winLoop, so no extra locking is required between callbacks).
@@ -291,10 +298,15 @@ func winLoop(sess uint64, done chan struct{}) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if keyboardCallback == 0 {
+	callbackOnce.Do(func() {
 		keyboardCallback = windows.NewCallback(keyboardProc)
 		mouseCallback = windows.NewCallback(mouseProc)
-	}
+	})
+
+	// PostThreadMessage fails for a thread without a message queue, which
+	// would lose End's WM_QUIT. Force the queue before publishing threadID.
+	var m msg
+	procPeekMessage.Call(uintptr(unsafe.Pointer(&m)), 0, wmUser, wmUser, pmNoRemove)
 
 	hInst, _, _ := procGetModuleHandle.Call(0)
 	tid, _, _ := procGetCurrentThread.Call()
@@ -332,7 +344,6 @@ func winLoop(sess uint64, done chan struct{}) {
 
 		// Windows has no native "hook start" callback; the loop blocks here
 		// until WM_QUIT (posted by End()) or an error.
-		var m msg
 		for {
 			ret, _, _ := procGetMessage.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
 			if int32(ret) <= 0 { // 0 == WM_QUIT, -1 == error

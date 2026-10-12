@@ -335,8 +335,10 @@ func x11EnableContext(conn net.Conn, opcode byte, ctx record.Context) error {
 // x11ReadLoop reads RECORD reply records off the raw data connection and
 // dispatches the device events they carry. It returns when the connection is
 // closed (by End()), a read fails or sess is no longer the live session.
+// The reply buffer is reused: x11Dispatch copies out what it needs.
 func x11ReadLoop(sess uint64, st *x11State) {
 	header := make([]byte, 32)
+	var buf []byte
 	for isCurrent(sess) {
 		if _, err := io.ReadFull(st.data, header); err != nil {
 			return
@@ -349,13 +351,13 @@ func x11ReadLoop(sess uint64, st *x11State) {
 		}
 
 		// Reply: 32-byte header + Length*4 bytes of trailing data.
-		length := int(xgb.Get32(header[4:]))
-		var data []byte
-		if length > 0 {
-			data = make([]byte, length*4)
-			if _, err := io.ReadFull(st.data, data); err != nil {
-				return
-			}
+		length := int(xgb.Get32(header[4:])) * 4
+		if cap(buf) < length {
+			buf = make([]byte, length)
+		}
+		data := buf[:length]
+		if _, err := io.ReadFull(st.data, data); err != nil {
+			return
 		}
 
 		// Category 0 (FromServer) carries the intercepted device events.

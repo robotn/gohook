@@ -13,8 +13,11 @@
 package hook
 
 import (
+	"fmt"
+	"io"
 	"testing"
 
+	"github.com/vcaesar/go-wayland/client"
 	"github.com/vcaesar/tt"
 )
 
@@ -56,4 +59,13 @@ func TestWaylandRelease(t *testing.T) {
 	lck.Unlock()
 
 	waylandRelease(st) // no-op
+}
+
+// TestWaylandDispatchFatal verifies only a failed socket read stops the
+// dispatch loop; a message for an unknown object is skipped.
+func TestWaylandDispatchFatal(t *testing.T) {
+	tt.Equal(t, false, dispatchFatal(nil))
+	tt.Equal(t, false, dispatchFatal(fmt.Errorf("%w (senderID=9)", client.ErrDispatchSenderNotFound)))
+	tt.Equal(t, false, dispatchFatal(client.ErrDispatchSenderUnsupported))
+	tt.Equal(t, true, dispatchFatal(fmt.Errorf("%w: %w", client.ErrDispatchUnableToReadMsg, io.EOF)))
 }
